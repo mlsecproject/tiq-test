@@ -21,6 +21,7 @@ In order to run these scripts, you will need to install R.
 
 Once you have your installation up and running, you will need to make sure you
 have some packages installed. The required packages are:
+
 * `futile.logger`
 * `data.table`
 * `testthat`
