@@ -23,10 +23,11 @@ Once you have your installation up and running, you will need to make sure you
 have some packages installed. The required packages are:
 * `futile.logger`
 * `data.table`
+* `testthat`
 
 Running this on your R console should take care of that:
 ```
-install.packages(c("futile.logger", "data/table"), repos="http://cran.us.r-project.org")
+install.packages(c("futile.logger", "data.table", "testthat"), repos="http://cran.us.r-project.org")
 ```
 
 How to use
