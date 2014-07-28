@@ -6,6 +6,8 @@ source("utils/log-config.R")
 source("utils/tiq-data.R")
 
 library(testthat)
+library(reshape2)
+library(ggplot2)
 
 # tiq.test.noveltyTest
 tiq.test.noveltyTest <- function(group, start.date, end.date, plot.sources=NULL) {
@@ -138,15 +140,41 @@ overlapCount <- function(test, reference) {
   return(length(intersect(test$entity, reference$entity)))
 }
 
+tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.sources=NULL) {
+  if (!is.matrix(overlap) || (dim(overlap)[1] != dim(overlap)[2])) {
+    msg = sprintf("tiq.test.plotOverlapTest: 'overlap' parameter mush be a square matrix")
+    flog.error(msg)
+    stop(msg)
+  }
+
+  plot.data = as.data.table(melt(overlap))
+  if (!is.null(plot.sources)) {
+    plot.data = plot.data[as.character(Var1) %chin% plot.sources]
+    plot.data = plot.data[as.character(Var2) %chin% plot.sources]
+  }
+
+  qplot(x=Var1, y=Var2, data=plot.data, fill=value, geom="tile",
+        xlab="Source", ylab="Source", main=title)
+
+}
+
 #####
-## CONFIGURATION
+## Simple validation code
 ##
 group = "public_inbound"
 start.date = as.Date("20140701", format="%Y%m%d")
 end.date = as.Date("20140715", format="%Y%m%d")
 
-#aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, plot.sources=NULL)
-#bb = tiq.test.noveltyTest("public_inbound", start.date, end.date, plot.sources=NULL)
-# tiq.test.overlapTest("public_inbound", end.date, type="raw", select.sources=NULL)
-# tiq.test.overlapTest("public_outbound", end.date, type="raw", select.sources=NULL)
-tiq.test.overlapTest("public_outbound", end.date, type="enriched", select.sources=NULL)
+if (F) {
+  aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, plot.sources=NULL)
+  bb = tiq.test.noveltyTest("public_inbound", start.date, end.date, plot.sources=NULL)
+}
+
+if (F) {
+  group = "public_outbound"
+  type = "enriched"
+  overlap = tiq.test.overlapTest(group, end.date, type, select.sources=NULL)
+  overlap.plot = tiq.test.plotOverlapTest(overlap, title=paste0("OverlapTest - ", group, " - ", end.date))
+
+  print(overlap.plot)
+}

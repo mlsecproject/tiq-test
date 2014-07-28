@@ -25,10 +25,13 @@ have some packages installed. The required packages are:
 * `futile.logger`
 * `data.table`
 * `testthat`
+* `reshape2`
+* `ggplot2`
 
 Running this on your R console should take care of that:
 ```
-install.packages(c("futile.logger", "data.table", "testthat"), repos="http://cran.us.r-project.org")
+install.packages(c("futile.logger", "data.table", "testthat", "reshape2", "ggplot2"), 
+                 repos="http://cran.us.r-project.org")
 ```
 
 How to use
