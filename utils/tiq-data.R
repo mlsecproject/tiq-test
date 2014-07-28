@@ -15,7 +15,7 @@ library(data.table)
 ##  - category: currently one of "raw", "enriched", "population"
 ##  - group: the intel group you want the path for
 .tiq.data.getDirPath <- function(category, group) {
-  path = file.path(tiq.data.rootPath, category, group)
+  path = file.path(.tiq.data.rootPath, category, group)
   if (!file.exists(path)) {
     msg = sprintf("tiq.data.getDirPath: path '%s' is invalid. Check 'category' and 'group' args.",
                   path)
@@ -73,7 +73,7 @@ tiq.data.loadTI <- function(category, group, date=NULL) {
 
   if (!file.exists(ti.file)) {
     flog.warn("tiq.data.loadTI: path '%s' is invalid. No data available on date '%s'.",
-              path, date)
+              ti.file, date)
     return(NULL)
   }
 
