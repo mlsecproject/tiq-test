@@ -7,15 +7,6 @@ source("utils/tiq-data.R")
 
 library(testthat)
 
-#####
-## CONFIGURATION
-##
-group = "public_inbound"
-start.date = as.Date("20140615", format="%Y%m%d")
-end.date = as.Date("20140715", format="%Y%m%d")
-
-category = "raw"
-
 # tiq.test.noveltyTest
 tiq.test.noveltyTest <- function(group, start.date, end.date, plot.sources=NULL) {
 
@@ -87,10 +78,49 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, plot.sources=NULL)
 
 }
 
+# tiq.test.overlapTest
+# - type - The overlap test can take into consideration the FQDN sources as
+#          the original entities ("raw"), or as the extracted IPv4 fields from
+#          the enriched entities ("enriched")
+tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
 
-differenceCount <- function(reference, test) {
+  test_that("tiq.test.overlapTest: parameters must have correct types", {
+    expect_that(class(group), equals("character"))
+    expect_that(class(date), equals("Date"))
+    expect_that(class(type), equals("character"))
+  })
+
+  # Loading the data from the specific date
+  str.date = format(date, format="%Y%m%d")
+  ti.dt = tiq.data.loadTI(type, group, date=str.date)
+  split.ti = split(ti.dt, ti.dt$source)
+
+  ## Performing the overlap test only on the sources we select
+  if (is.null(select.sources)) {
+    select.sources = unique(ti.dt$source)
+  }
+
+  overlap.matrix = matrix(nrow=length(select.sources), ncol=length(select.sources),
+                          dimnames=list(select.sources, select.sources))
+
+  for (ti in 1:length(select.sources)) {
+    for (overlap in 1:length(select.sources)) {
+      # For each pairing
+      overlap.count = overlapCount(split.ti[[select.sources[ti]]],
+                                   split.ti[[select.sources[overlap]]])
+      overlap.matrix[ti,overlap] = overlap.count /
+                                   length(unique(split.ti[[select.sources[ti]]]$entity))
+    }
+  }
+
+  return(overlap.matrix)
+}
+
+
+
+differenceCount <- function(test, reference) {
   if (is.null(reference$entity) || is.null(test$entity)) {
-    msg = sprintf("overlapCount: both reference and test datasets must have the 'entity' field")
+    msg = sprintf("differenceCount: both reference and test datasets must have the 'entity' field")
     flog.error(msg)
     stop(msg)
   }
@@ -98,6 +128,25 @@ differenceCount <- function(reference, test) {
   return(length(setdiff(test$entity, reference$entity)))
 }
 
-aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, plot.sources=NULL)
-#bb = tiq.test.noveltyTest("public_inbound", start.date, end.date, plot.sources=NULL)
+overlapCount <- function(test, reference) {
+  if (is.null(reference$entity) || is.null(test$entity)) {
+    msg = sprintf("overlapCount: both reference and test datasets must have the 'entity' field")
+    flog.error(msg)
+    stop(msg)
+  }
 
+  return(length(intersect(test$entity, reference$entity)))
+}
+
+#####
+## CONFIGURATION
+##
+group = "public_inbound"
+start.date = as.Date("20140701", format="%Y%m%d")
+end.date = as.Date("20140715", format="%Y%m%d")
+
+#aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, plot.sources=NULL)
+#bb = tiq.test.noveltyTest("public_inbound", start.date, end.date, plot.sources=NULL)
+# tiq.test.overlapTest("public_inbound", end.date, type="raw", select.sources=NULL)
+# tiq.test.overlapTest("public_outbound", end.date, type="raw", select.sources=NULL)
+tiq.test.overlapTest("public_outbound", end.date, type="enriched", select.sources=NULL)
