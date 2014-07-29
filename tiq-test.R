@@ -10,7 +10,7 @@ library(reshape2)
 library(ggplot2)
 
 # tiq.test.noveltyTest
-tiq.test.noveltyTest <- function(group, start.date, end.date, plot.sources=NULL) {
+tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NULL) {
 
   test_that("tiq.test.noveltyTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
@@ -40,7 +40,15 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, plot.sources=NULL)
     ti.dt = tiq.data.loadTI("raw", group, date=str.date)
     if (!is.null(ti.dt)) {
       split.ti = split(ti.dt, ti.dt$source)
-      for (name in names(split.ti)) {
+
+      ## Performing the novelty test only on the sources we select
+      if (!is.null(select.sources)) {
+        split.names = intersect(select.sources, names(split.ti))
+      } else {
+        split.names = names(split.ti)
+      }
+
+      for (name in split.names) {
         ti.count[[name]][[str.date]] = nrow(split.ti[[name]])
         if (!is.null(prev.split.ti) && !is.null(prev.split.ti[[name]])) {
           ti.added.ratio[[name]][[str.date]] = differenceCount(split.ti[[name]], prev.split.ti[[name]]) /
@@ -55,30 +63,40 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, plot.sources=NULL)
     prev.split.ti = split.ti
   }
 
+  return(list(ti.count=ti.count, ti.added.ratio=ti.added.ratio, ti.churn.ratio=ti.churn.ratio))
+}
+
+# tiq.test.noveltyTest
+tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.sources=NULL) {
+
+  test_that("tiq.test.plotNoveltyTest: parameters must have correct types", {
+    expect_that(class(novelty), equals("list"))
+    expect_that(class(novelty$ti.count), equals("list"))
+    expect_that(class(novelty$ti.added.ratio), equals("list"))
+    expect_that(class(novelty$ti.churn.ratio), equals("list"))
+  })
+
   ## Plotting the data (to be improved)
   if (is.null(plot.sources)) {
-    plot.sources = names(ti.added.ratio)
-  }
-  if (length(plot.sources) == 1) {
-    par(mfrow=c(1,1))
-  } else if (length(plot.sources) == 2) {
-    par(mfrow=c(2,1))
-  } else {
-    par(mfrow=c(3,ceiling(length(plot.sources)/3)))
+    plot.sources = names(novelty$ti.added.ratio)
   }
 
+  rows = ifelse(length(plot.sources) > 3, 3, length(plot.sources))
+  cols = ifelse(length(plot.sources) > 3, 1 + (length(plot.sources) %/% 3), 1)
+
+  par(mfrow=c(rows,cols))
+
   for (name in plot.sources) {
-    plot(ti.added.ratio[[name]], type="l", col="blue",
-         ylim=c(min(-ti.churn.ratio[[name]]), max(ti.added.ratio[[name]])),
-         xlab="Number of days since start", ylab="Ratio of Indicator Change",
-         main =paste0("Source: ", name, "\navg size - ", floor(mean(ti.count[[name]]))))
-    lines(-ti.churn.ratio[[name]], type="l", col="red")
+    plot(novelty$ti.added.ratio[[name]], type="l", col="blue",
+         ylim=c(min(-novelty$ti.churn.ratio[[name]]), max(novelty$ti.added.ratio[[name]])),
+         xlab="Number of days", ylab="Ratio of Change per Day",
+         main=paste0("Source name: ", name, "\nAvg size: ", floor(mean(novelty$ti.count[[name]]))))
+    lines(-novelty$ti.churn.ratio[[name]], type="l", col="red")
     abline(h=0)
   }
 
-  return(list(ti.count=ti.count, ti.added.ratio=ti.added.ratio, ti.churn.ratio=ti.churn.ratio))
-
 }
+
 
 # tiq.test.overlapTest
 # - type - The overlap test can take into consideration the FQDN sources as
@@ -118,8 +136,6 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
   return(overlap.matrix)
 }
 
-
-
 differenceCount <- function(test, reference) {
   if (is.null(reference$entity) || is.null(test$entity)) {
     msg = sprintf("differenceCount: both reference and test datasets must have the 'entity' field")
@@ -140,6 +156,8 @@ overlapCount <- function(test, reference) {
   return(length(intersect(test$entity, reference$entity)))
 }
 
+# tiq.test.plotOverlapTest
+#
 tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.sources=NULL) {
   if (!is.matrix(overlap) || (dim(overlap)[1] != dim(overlap)[2])) {
     msg = sprintf("tiq.test.plotOverlapTest: 'overlap' parameter mush be a square matrix")
@@ -166,8 +184,13 @@ start.date = as.Date("20140701", format="%Y%m%d")
 end.date = as.Date("20140715", format="%Y%m%d")
 
 if (F) {
-  aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, plot.sources=NULL)
-  bb = tiq.test.noveltyTest("public_inbound", start.date, end.date, plot.sources=NULL)
+  aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, select.sources=NULL)
+  tiq.test.plotNoveltyTest(aa)
+  aa2 = tiq.test.noveltyTest("public_outbound", start.date, end.date,
+                             select.sources=c("alienvault", "zeus"))
+  tiq.test.plotNoveltyTest(aa2)
+  bb = tiq.test.noveltyTest("public_inbound", start.date, end.date, select.sources=NULL)
+  tiq.test.plotNoveltyTest(bb)
 }
 
 if (F) {
