@@ -5,7 +5,6 @@
 source("utils/log-config.R")
 source("utils/tiq-data.R")
 
-library(testthat)
 library(reshape2)
 library(ggplot2)
 
@@ -179,11 +178,12 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
 #####
 ## Simple validation code
 ##
-group = "public_inbound"
-start.date = as.Date("20140701", format="%Y%m%d")
-end.date = as.Date("20140715", format="%Y%m%d")
-
 if (F) {
+  group = "public_inbound"
+  start.date = as.Date("20140701", format="%Y%m%d")
+  end.date = as.Date("20140715", format="%Y%m%d")
+
+
   aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, select.sources=NULL)
   tiq.test.plotNoveltyTest(aa)
   aa2 = tiq.test.noveltyTest("public_outbound", start.date, end.date,
