@@ -4,6 +4,7 @@
 
 ## Requires: Usage of `data.table` package
 library(data.table)
+library(testthat)
 
 ## The root path is the local working directory of tiq-test scripts with an added
 ## "data" path. Change here if you want it to point to a different place.
@@ -38,28 +39,19 @@ library(data.table)
 }
 
 tiq.data.loadPopulation <- function(pop.group, pop.id, date = NULL) {
-
-  ## Checking the population group
-  if (missing(pop.group)) {
-    msg = "tiq.loadPopulationData: unable to open Population Data - `pop.group` is missing"
-    flog.error(msg)
-    stop(msg)
-  }
-
-  ## Is there a date?
-
-  msg = "Not Implemented"
-  flog.error(msg)
-  stop(msg)
+  return(.tiq.data.loadData("population", pop.group, date, valid.fields=pop.id))
 }
 
 tiq.data.loadTI <- function(category, group, date=NULL) {
-  # Checking the category and group
-  if (missing(category) || missing(group)) {
-    msg = "tiq.data.loadTI: unable to open TI data - 'category' or 'group' are missing"
-    flog.error(msg)
-    stop(msg)
-  }
+  return(.tiq.data.loadData(category, group, date, valid.fields=.tiq.data.defaultTIFields))
+}
+
+.tiq.data.loadData <- function(category, group, date=NULL, valid.fields=character(0)) {
+
+  test_that("tiq.data.loadData: unable to open data - 'category' or 'group' are invalid", {
+    expect_that(class(category), equals("character"))
+    expect_that(class(group), equals("character"))
+  })
 
   # If we do not have a date, we get the latest one we have available
   # The dates are in "%Y%M%d" format, so they can be lexicographically ordered
@@ -83,11 +75,45 @@ tiq.data.loadTI <- function(category, group, date=NULL) {
 
   # Some sanity checking - is this a data.table and does it have all the fields
   # we recognize?
-  if (!is.data.table(ti.dt) || !all(.tiq.data.defaultTIFields %chin% names(ti.dt))) {
-    flog.warn("tiq.data.loadTI: Data loaded from path '%s' is invalid. No data available on date '%s'.",
-              path, date)
+  if (!is.data.table(ti.dt) || !all(valid.fields %chin% names(ti.dt))) {
+    flog.warn("tiq.data.loadData: Data loaded from path '%s' is invalid.",
+              ti.file)
     return(NULL)
   }
 
   return(ti.dt)
+}
+
+tiq.data.extractPopulationFromTI <- function(category, group, pop.id, date=NULL) {
+
+  ti.dt = tiq.data.loadTI(category, group, date)
+  if (is.null(ti.dt)) {
+    msg = sprintf("tiq.data.extractPopulationFromTI: unable to locate TI for '%s', '%s', '%s'",
+                  category, group, ifelse(is.null(date), "NULL", date))
+    flog.error(msg)
+    stop(msg)
+  }
+
+  if (missing(pop.id) || !all(pop.id %chin% names(ti.dt))) {
+    msg = sprintf("tiq.data.extractPopulationFromTI: all pop.id fields '%s' must be present in TI fields '%s'",
+                  paste(pop.id, collapse="', '"),
+                  paste(names(ti.dt), collapse="', '"))
+    flog.error(msg)
+    stop(msg)
+  }
+
+  split.ti = split(ti.dt, ti.dt$source)
+
+  aa = split.ti[[1]]
+  pop.aa = aa[, list(totalIPs=.N), by=pop.id]
+  setkeyv(pop.aa, pop.id)
+}
+
+if (F) {
+category = "enriched"
+group = "public_outbound"
+pop.id = "country"
+date=NULL
+pop.group = "mmgeo"
+
 }
