@@ -83,37 +83,3 @@ tiq.data.loadTI <- function(category, group, date=NULL) {
 
   return(ti.dt)
 }
-
-tiq.data.extractPopulationFromTI <- function(category, group, pop.id, date=NULL) {
-
-  ti.dt = tiq.data.loadTI(category, group, date)
-  if (is.null(ti.dt)) {
-    msg = sprintf("tiq.data.extractPopulationFromTI: unable to locate TI for '%s', '%s', '%s'",
-                  category, group, ifelse(is.null(date), "NULL", date))
-    flog.error(msg)
-    stop(msg)
-  }
-
-  if (missing(pop.id) || !all(pop.id %chin% names(ti.dt))) {
-    msg = sprintf("tiq.data.extractPopulationFromTI: all pop.id fields '%s' must be present in TI fields '%s'",
-                  paste(pop.id, collapse="', '"),
-                  paste(names(ti.dt), collapse="', '"))
-    flog.error(msg)
-    stop(msg)
-  }
-
-  split.ti = split(ti.dt, ti.dt$source)
-
-  aa = split.ti[[1]]
-  pop.aa = aa[, list(totalIPs=.N), by=pop.id]
-  setkeyv(pop.aa, pop.id)
-}
-
-if (F) {
-category = "enriched"
-group = "public_outbound"
-pop.id = "country"
-date=NULL
-pop.group = "mmgeo"
-
-}

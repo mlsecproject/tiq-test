@@ -175,6 +175,60 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
 
 }
 
+tiq.test.extractPopulationFromTI <- function(category, group, pop.id, date,
+                                             split.ti = TRUE, select.sources=NULL) {
+
+  test_that("tiq.test.extractPopulationFromTI: parameters must have correct types", {
+    expect_that(class(category), equals("character"))
+    expect_that(class(group), equals("character"))
+    expect_that(class(pop.id), equals("character"))
+    expect_that(class(date), equals("Date"))
+    expect_that(class(split.ti), equals("logical"))
+  })
+
+  # Loading the data from the specific date
+  str.date = format(date, format="%Y%m%d")
+  ti.dt = tiq.data.loadTI(category, group, str.date)
+  if (is.null(ti.dt)) {
+    msg = sprintf("tiq.data.extractPopulationFromTI: unable to locate TI for '%s', '%s', '%s'",
+                  category, group, ifelse(is.null(date), "NULL", date))
+    flog.error(msg)
+    stop(msg)
+  }
+
+  if (missing(pop.id) || !all(pop.id %chin% names(ti.dt))) {
+    msg = sprintf("tiq.data.extractPopulationFromTI: all pop.id fields '%s' must be present in TI fields '%s'",
+                  paste(pop.id, collapse="', '"),
+                  paste(names(ti.dt), collapse="', '"))
+    flog.error(msg)
+    stop(msg)
+  }
+
+  if (split.ti) {
+    ti.data = split(ti.dt, ti.dt$source)
+  } else {
+    ti.data = list(ti.dt)
+    names(ti.data) <- group
+  }
+
+  ## Performing the pop generation only on the sources we select
+  if (!is.null(select.sources)) {
+    select.sources = intersect(select.sources, names(ti.data))
+    ti.data = ti.data[select.sources]
+  }
+
+  generatePopulation <- function(ti) {
+    setkey(ti, entity)
+    ti = unique(ti)
+    pop.ti = ti[, list(totalIPs=.N), by=pop.id]
+    setkeyv(pop.ti, pop.id)
+  }
+
+  pop.data = lapply(ti.data, generatePopulation)
+
+  return(pop.data)
+}
+
 #####
 ## Simple validation code
 ##
@@ -196,8 +250,33 @@ if (F) {
 if (F) {
   group = "public_outbound"
   type = "enriched"
-  overlap = tiq.test.overlapTest(group, end.date, type, select.sources=NULL)
-  overlap.plot = tiq.test.plotOverlapTest(overlap, title=paste0("OverlapTest - ", group, " - ", end.date))
+  end.date = as.Date("20140715", format="%Y%m%d")
 
+  overlap = tiq.test.overlapTest(group, end.date, type, select.sources=NULL)
+  print(overlap)
+  overlap.plot = tiq.test.plotOverlapTest(overlap, title=paste0("OverlapTest - ", group, " - ", end.date))
   print(overlap.plot)
 }
+
+if (F) {
+  category = "enriched"
+  group = "public_outbound"
+  pop.id = "country"
+  date=NULL
+  pop.group = "mmgeo"
+  end.date = as.Date("20140710", format="%Y%m%d")
+
+  pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
+                                         select.sources=NULL)
+  print(pop)
+
+  pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
+                                         select.sources=NULL)
+  print(pop)
+
+  pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+  print(pop)
+}
+
