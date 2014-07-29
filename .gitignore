@@ -6,3 +6,10 @@
 
 # R data files from past sessions
 .Rdata
+.Rproj.user
+
+# Ignoring our "log" directory
+log/
+
+## MArckdown things
+README.html
