@@ -229,6 +229,45 @@ tiq.test.extractPopulationFromTI <- function(category, group, pop.id, date,
   return(pop.data)
 }
 
+# tiq.test.plotPopulationBars
+#
+tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
+                                        title="",
+                                        plot.sources=NULL) {
+
+  test_that("tiq.test.plotPopulationBars: parameters must have correct types", {
+    expect_that(class(pop.data), equals("list"))
+    expect_that(class(pop.id), equals("character"))
+    expect_that(class(table.size), equals("numeric"))
+    expect_that(class(title), equals("character"))
+  })
+
+  ## Plotting the data (to be improved)
+  if (is.null(plot.sources)) {
+    plot.sources = names(pop.data)
+  }
+
+  ## ggplot2 facets?
+  ## Also, issue with asname namesize
+  rows = ifelse(length(plot.sources) > 3, 3, length(plot.sources))
+  cols = ifelse(length(plot.sources) > 3, 1 + (length(plot.sources) %/% 3), 1)
+  par(mfrow=c(rows,cols))
+
+  for (name in plot.sources) {
+    pop = pop.data[[name]]
+    pop[, totalIPs := totalIPs / sum(pop$totalIPs)]
+    pop = pop[order(totalIPs, decreasing=TRUE)]
+    if (table.size > 0) pop = pop[1:table.size]
+    pop = pop[order(totalIPs, decreasing=FALSE)]
+
+    barplot(height=pop$totalIPs, names.arg=pop[[pop.id]], main=title, col="red",
+            xlab=paste0("IP Ratio (",name,")"), horiz=TRUE, las=1, cex.lab=0.75, cex.names=0.75)
+    grid()
+  }
+
+}
+
+
 #####
 ## Simple validation code
 ##
@@ -264,19 +303,35 @@ if (F) {
   pop.id = "country"
   date=NULL
   pop.group = "mmgeo"
-  end.date = as.Date("20140710", format="%Y%m%d")
+  end.date = as.Date("20140711", format="%Y%m%d")
 
   pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
                                          select.sources=NULL)
-  print(pop)
+  tiq.test.plotPopulationBars(pop, "country")
 
   pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
                                          select.sources=NULL)
-  print(pop)
+  tiq.test.plotPopulationBars(pop, "asname")
 
   pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
                                          select.sources=NULL,
                                          split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
+  tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
+
+  pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
+  tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
+
+  pop = tiq.test.extractPopulationFromTI(category, "public_inbound", "country", end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
+  tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
+
+
   print(pop)
 }
 
