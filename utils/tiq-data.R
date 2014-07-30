@@ -39,7 +39,12 @@ library(testthat)
 }
 
 tiq.data.loadPopulation <- function(pop.group, pop.id, date = NULL) {
-  return(.tiq.data.loadData("population", pop.group, date, valid.fields=pop.id))
+  pop.data = .tiq.data.loadData("population", pop.group, date, valid.fields=pop.id)
+  pop.data[, totalIPs := as.numeric(totalIPs)]
+  pop.data = list(pop.data)
+  names(pop.data) <- pop.group
+
+  return(pop.data)
 }
 
 tiq.data.loadTI <- function(category, group, date=NULL) {
