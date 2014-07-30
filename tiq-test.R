@@ -319,11 +319,7 @@ if (F) {
   pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
   tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
 
-  pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
-                                         select.sources=NULL,
-                                         split.ti=FALSE)
-  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
-  tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
+
 
   pop = tiq.test.extractPopulationFromTI(category, "public_inbound", "country", end.date,
                                          select.sources=NULL,
@@ -331,7 +327,21 @@ if (F) {
   pop.mm = tiq.data.loadPopulation("mmgeo", "country")
   tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
 
+  pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
+  #tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
 
-  print(pop)
+  a.US = pop$public_outbound[country=="CN"]$totalIPs
+  a.notUS = sum(pop$public_outbound$totalIPs) - a.US
+  b.US = pop.mm$mmgeo[country=="CN"]$totalIPs
+  b.notUS = sum(pop.mm$mmgeo$totalIPs) - b.US
+  us.test = matrix(c(a.US, a.notUS, b.US, b.notUS), ncol=2,byrow=T)
+  rownames(us.test) <- c("public_outbound", "mmgeo")
+  colnames(us.test) <- c("CN", "Not CN")
+  us.test
+  prop.test(us.test, conf.level=0.99)
+
 }
 
