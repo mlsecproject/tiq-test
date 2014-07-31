@@ -264,7 +264,71 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
             xlab=paste0("IP Ratio (",name,")"), horiz=TRUE, las=1, cex.lab=0.75, cex.names=0.75)
     grid()
   }
+}
 
+# tiq.test.overlapTest
+# - exact - When this is TRUE (the default), the function will execute an
+#           exact binomial test with the proportion on ref.pop. This should
+#           only be the case when ref.pop is the ACTUAL population (e.g. from
+#           MaxMind GeoIP database). Otherwise, set this to FALSE for a
+#           chi-squared test to compare the different proportions
+tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
+                                         exact = TRUE, top=-1) {
+
+  ## Parameter checking
+
+  # Lets create copies of the data.tables, since we are messing with them
+  ref.pop = copy(ref.pop)
+  test.pop = copy(test.pop)
+
+  # Reordering the test population so I can get the "top" entries for the test
+  # Also, getting rid of any eventual NAs on pop.id (they happen)
+  test.pop.total = sum(test.pop$totalIPs, na.rm=T)
+  test.pop = test.pop[!is.na(test.pop[[pop.id]])]
+  test.pop = test.pop[order(totalIPs, decreasing=T)]
+  if (top > 0) {
+    test.pop = test.pop[1:top]
+  }
+
+  # Calculating the proportion from the reference population so we can use on
+  # the exact binomial test and/or the chi-squared test
+  ref.pop.total = sum(ref.pop$totalIPs, na.rm=T)
+  ref.pop[, pop.ratio := totalIPs / ref.pop.total]
+  setnames(ref.pop, "totalIPs", "refIPs")
+
+  # Merging the datasets for the test. If for any of the cases the reference counts
+  # are NA (the specific id is not present in the reference population), they are
+  # removed from the test
+  test.pop = merge(test.pop, ref.pop, by=pop.id, all.x=T, all.y=F)
+  test.pop = test.pop[!is.na(pop.ratio)]
+
+  if (exact) { # Exact binomial test
+    retval = mapply(binom.test, test.pop$totalIPs, test.pop.total, test.pop$pop.ratio,
+                   SIMPLIFY=F, USE.NAMES=F)
+    retval = lapply(retval, function(htest) {
+      if (!is.null(htest$null.value)) {
+        htest$conf.int = htest$conf.int - htest$null.value
+      }
+      return(htest)
+    })
+    names(retval) <- test.pop[[pop.id]]
+  } else { # Chi-squared proportion test
+    sucesses = mapply(c, test.pop$totalIPs, test.pop$refIPs, SIMPLIFY=F,
+                      USE.NAMES=F)
+    totals = list(c(test.pop.total, ref.pop.total))
+    retval = mapply(prop.test, sucesses, totals, SIMPLIFY=F, USE.NAMES=F)
+    names(retval) <- test.pop[[pop.id]]
+  }
+
+  id = names(retval)
+  conf.int.start = sapply(retval, function(htest) return(htest$conf.int[1]), USE.NAMES=F)
+  conf.int.end = sapply(retval, function(htest) return(htest$conf.int[2]), USE.NAMES=F)
+  p.value = sapply(retval, function(htest) return(htest$p.value), USE.NAMES=F)
+
+  dt.retval = data.table(id, conf.int.start, conf.int.end, p.value)
+  setnames(dt.retval, "id", pop.id)
+
+  return(dt.retval)
 }
 
 
@@ -304,44 +368,99 @@ if (F) {
   date=NULL
   pop.group = "mmgeo"
   end.date = as.Date("20140711", format="%Y%m%d")
+  end.date2 = as.Date("20140712", format="%Y%m%d")
+
+#   pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
+#                                          select.sources=NULL)
+#   tiq.test.plotPopulationBars(pop, "country")
+#
+#   pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
+#                                          select.sources=NULL)
+#   tiq.test.plotPopulationBars(pop, "asname")
+#
+#   pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
+#                                          select.sources=NULL,
+#                                          split.ti=FALSE)
+#   pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
+#   tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
+#
+#
+#
+#   pop = tiq.test.extractPopulationFromTI(category, "public_inbound", "country", end.date,
+#                                          select.sources=NULL,
+#                                          split.ti=FALSE)
+#   pop.mm = tiq.data.loadPopulation("mmgeo", "country")
+#   tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
 
   pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
-                                         select.sources=NULL)
-  tiq.test.plotPopulationBars(pop, "country")
-
-  pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
-                                         select.sources=NULL)
-  tiq.test.plotPopulationBars(pop, "asname")
-
-  pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
                                          select.sources=NULL,
                                          split.ti=FALSE)
-  pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
-  tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
 
-
-
-  pop = tiq.test.extractPopulationFromTI(category, "public_inbound", "country", end.date,
-                                         select.sources=NULL,
-                                         split.ti=FALSE)
-  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
-  tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
-
-  pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
-                                         select.sources=NULL,
-                                         split.ti=FALSE)
+  pop2 = tiq.test.extractPopulationFromTI(category, group, "country", end.date2,
+                                       select.sources=NULL,
+                                       split.ti=FALSE)
   pop.mm = tiq.data.loadPopulation("mmgeo", "country")
   #tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
 
-  a.US = pop$public_outbound[country=="CN"]$totalIPs
-  a.notUS = sum(pop$public_outbound$totalIPs) - a.US
-  b.US = pop.mm$mmgeo[country=="CN"]$totalIPs
-  b.notUS = sum(pop.mm$mmgeo$totalIPs) - b.US
-  us.test = matrix(c(a.US, a.notUS, b.US, b.notUS), ncol=2,byrow=T)
-  rownames(us.test) <- c("public_outbound", "mmgeo")
-  colnames(us.test) <- c("CN", "Not CN")
-  us.test
-  prop.test(us.test, conf.level=0.99)
+#   ref.pop = pop.mm$mmgeo
+#   test.pop = pop$public_outbound
+#
+#   tests = tiq.test.populationInference(ref.pop, test.pop, "country",
+#                                        exact = TRUE, top=-1)
+#
+# tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+# tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+# tests[p.value > 0.05]
+
+ref.pop = pop$public_outbound
+test.pop = pop2$public_outbound
+
+tests = tiq.test.populationInference(ref.pop, test.pop, "country",
+                                     exact = F, top=-1)
+
+tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+tests[p.value > 0.05]
+
+}
+
+if (F) {
+  category = "enriched"
+  group = "public_outbound"
+  pop.id = "asname"
+  date=NULL
+  pop.group = "mmasn"
+  end.date = as.Date("20140711", format="%Y%m%d")
+  end.date2 = as.Date("20140712", format="%Y%m%d")
+
+  pop = tiq.test.extractPopulationFromTI(category, group, pop.id, end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+
+  pop2 = tiq.test.extractPopulationFromTI(category, group, pop.id, end.date2,
+                                          select.sources=NULL,
+                                          split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation(pop.group, pop.id)
+
+    ref.pop = pop.mm$mmasn
+    test.pop = pop$public_outbound
+
+    tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
+                                         exact = TRUE, top=-1)
+
+  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+  tests[p.value > 0.05]
+
+  ref.pop = pop$public_outbound
+  test.pop = pop2$public_outbound
+
+  tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
+                                       exact = F, top=-1)
+
+  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+  tests[p.value > 0.05]
 
 }
 
