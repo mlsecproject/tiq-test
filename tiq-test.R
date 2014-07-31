@@ -5,7 +5,6 @@
 source("utils/log-config.R")
 source("utils/tiq-data.R")
 
-library(testthat)
 library(reshape2)
 library(ggplot2)
 
@@ -176,14 +175,172 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
 
 }
 
+tiq.test.extractPopulationFromTI <- function(category, group, pop.id, date,
+                                             split.ti = TRUE, select.sources=NULL) {
+
+  test_that("tiq.test.extractPopulationFromTI: parameters must have correct types", {
+    expect_that(class(category), equals("character"))
+    expect_that(class(group), equals("character"))
+    expect_that(class(pop.id), equals("character"))
+    expect_that(class(date), equals("Date"))
+    expect_that(class(split.ti), equals("logical"))
+  })
+
+  # Loading the data from the specific date
+  str.date = format(date, format="%Y%m%d")
+  ti.dt = tiq.data.loadTI(category, group, str.date)
+  if (is.null(ti.dt)) {
+    msg = sprintf("tiq.data.extractPopulationFromTI: unable to locate TI for '%s', '%s', '%s'",
+                  category, group, ifelse(is.null(date), "NULL", date))
+    flog.error(msg)
+    stop(msg)
+  }
+
+  if (missing(pop.id) || !all(pop.id %chin% names(ti.dt))) {
+    msg = sprintf("tiq.data.extractPopulationFromTI: all pop.id fields '%s' must be present in TI fields '%s'",
+                  paste(pop.id, collapse="', '"),
+                  paste(names(ti.dt), collapse="', '"))
+    flog.error(msg)
+    stop(msg)
+  }
+
+  if (split.ti) {
+    ti.data = split(ti.dt, ti.dt$source)
+  } else {
+    ti.data = list(ti.dt)
+    names(ti.data) <- group
+  }
+
+  ## Performing the pop generation only on the sources we select
+  if (!is.null(select.sources)) {
+    select.sources = intersect(select.sources, names(ti.data))
+    ti.data = ti.data[select.sources]
+  }
+
+  generatePopulation <- function(ti) {
+    setkey(ti, entity)
+    ti = unique(ti)
+    pop.ti = ti[, list(totalIPs=.N), by=pop.id]
+    setkeyv(pop.ti, pop.id)
+  }
+
+  pop.data = lapply(ti.data, generatePopulation)
+
+  return(pop.data)
+}
+
+# tiq.test.plotPopulationBars
+#
+tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
+                                        title="",
+                                        plot.sources=NULL) {
+
+  test_that("tiq.test.plotPopulationBars: parameters must have correct types", {
+    expect_that(class(pop.data), equals("list"))
+    expect_that(class(pop.id), equals("character"))
+    expect_that(class(table.size), equals("numeric"))
+    expect_that(class(title), equals("character"))
+  })
+
+  ## Plotting the data (to be improved)
+  if (is.null(plot.sources)) {
+    plot.sources = names(pop.data)
+  }
+
+  ## ggplot2 facets?
+  ## Also, issue with asname namesize
+  rows = ifelse(length(plot.sources) > 3, 3, length(plot.sources))
+  cols = ifelse(length(plot.sources) > 3, 1 + (length(plot.sources) %/% 3), 1)
+  par(mfrow=c(rows,cols))
+
+  for (name in plot.sources) {
+    pop = pop.data[[name]]
+    pop[, totalIPs := totalIPs / sum(pop$totalIPs)]
+    pop = pop[order(totalIPs, decreasing=TRUE)]
+    if (table.size > 0) pop = pop[1:table.size]
+    pop = pop[order(totalIPs, decreasing=FALSE)]
+
+    barplot(height=pop$totalIPs, names.arg=pop[[pop.id]], main=title, col="red",
+            xlab=paste0("IP Ratio (",name,")"), horiz=TRUE, las=1, cex.lab=0.75, cex.names=0.75)
+    grid()
+  }
+}
+
+# tiq.test.overlapTest
+# - exact - When this is TRUE (the default), the function will execute an
+#           exact binomial test with the proportion on ref.pop. This should
+#           only be the case when ref.pop is the ACTUAL population (e.g. from
+#           MaxMind GeoIP database). Otherwise, set this to FALSE for a
+#           chi-squared test to compare the different proportions
+tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
+                                         exact = TRUE, top=-1) {
+
+  ## Parameter checking
+
+  # Lets create copies of the data.tables, since we are messing with them
+  ref.pop = copy(ref.pop)
+  test.pop = copy(test.pop)
+
+  # Reordering the test population so I can get the "top" entries for the test
+  # Also, getting rid of any eventual NAs on pop.id (they happen)
+  test.pop.total = sum(test.pop$totalIPs, na.rm=T)
+  test.pop = test.pop[!is.na(test.pop[[pop.id]])]
+  test.pop = test.pop[order(totalIPs, decreasing=T)]
+  if (top > 0) {
+    test.pop = test.pop[1:top]
+  }
+
+  # Calculating the proportion from the reference population so we can use on
+  # the exact binomial test and/or the chi-squared test
+  ref.pop.total = sum(ref.pop$totalIPs, na.rm=T)
+  ref.pop[, pop.ratio := totalIPs / ref.pop.total]
+  setnames(ref.pop, "totalIPs", "refIPs")
+
+  # Merging the datasets for the test. If for any of the cases the reference counts
+  # are NA (the specific id is not present in the reference population), they are
+  # removed from the test
+  test.pop = merge(test.pop, ref.pop, by=pop.id, all.x=T, all.y=F)
+  test.pop = test.pop[!is.na(pop.ratio)]
+
+  if (exact) { # Exact binomial test
+    retval = mapply(binom.test, test.pop$totalIPs, test.pop.total, test.pop$pop.ratio,
+                   SIMPLIFY=F, USE.NAMES=F)
+    retval = lapply(retval, function(htest) {
+      if (!is.null(htest$null.value)) {
+        htest$conf.int = htest$conf.int - htest$null.value
+      }
+      return(htest)
+    })
+    names(retval) <- test.pop[[pop.id]]
+  } else { # Chi-squared proportion test
+    sucesses = mapply(c, test.pop$totalIPs, test.pop$refIPs, SIMPLIFY=F,
+                      USE.NAMES=F)
+    totals = list(c(test.pop.total, ref.pop.total))
+    retval = mapply(prop.test, sucesses, totals, SIMPLIFY=F, USE.NAMES=F)
+    names(retval) <- test.pop[[pop.id]]
+  }
+
+  id = names(retval)
+  conf.int.start = sapply(retval, function(htest) return(htest$conf.int[1]), USE.NAMES=F)
+  conf.int.end = sapply(retval, function(htest) return(htest$conf.int[2]), USE.NAMES=F)
+  p.value = sapply(retval, function(htest) return(htest$p.value), USE.NAMES=F)
+
+  dt.retval = data.table(id, conf.int.start, conf.int.end, p.value)
+  setnames(dt.retval, "id", pop.id)
+
+  return(dt.retval)
+}
+
+
 #####
 ## Simple validation code
 ##
-group = "public_inbound"
-start.date = as.Date("20140701", format="%Y%m%d")
-end.date = as.Date("20140715", format="%Y%m%d")
-
 if (F) {
+  group = "public_inbound"
+  start.date = as.Date("20140701", format="%Y%m%d")
+  end.date = as.Date("20140715", format="%Y%m%d")
+
+
   aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, select.sources=NULL)
   tiq.test.plotNoveltyTest(aa)
   aa2 = tiq.test.noveltyTest("public_outbound", start.date, end.date,
@@ -196,8 +353,114 @@ if (F) {
 if (F) {
   group = "public_outbound"
   type = "enriched"
-  overlap = tiq.test.overlapTest(group, end.date, type, select.sources=NULL)
-  overlap.plot = tiq.test.plotOverlapTest(overlap, title=paste0("OverlapTest - ", group, " - ", end.date))
+  end.date = as.Date("20140715", format="%Y%m%d")
 
+  overlap = tiq.test.overlapTest(group, end.date, type, select.sources=NULL)
+  print(overlap)
+  overlap.plot = tiq.test.plotOverlapTest(overlap, title=paste0("OverlapTest - ", group, " - ", end.date))
   print(overlap.plot)
 }
+
+if (F) {
+  category = "enriched"
+  group = "public_outbound"
+  pop.id = "country"
+  date=NULL
+  pop.group = "mmgeo"
+  end.date = as.Date("20140711", format="%Y%m%d")
+  end.date2 = as.Date("20140712", format="%Y%m%d")
+
+#   pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
+#                                          select.sources=NULL)
+#   tiq.test.plotPopulationBars(pop, "country")
+#
+#   pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
+#                                          select.sources=NULL)
+#   tiq.test.plotPopulationBars(pop, "asname")
+#
+#   pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
+#                                          select.sources=NULL,
+#                                          split.ti=FALSE)
+#   pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
+#   tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
+#
+#
+#
+#   pop = tiq.test.extractPopulationFromTI(category, "public_inbound", "country", end.date,
+#                                          select.sources=NULL,
+#                                          split.ti=FALSE)
+#   pop.mm = tiq.data.loadPopulation("mmgeo", "country")
+#   tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
+
+  pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+
+  pop2 = tiq.test.extractPopulationFromTI(category, group, "country", end.date2,
+                                       select.sources=NULL,
+                                       split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
+  #tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
+
+#   ref.pop = pop.mm$mmgeo
+#   test.pop = pop$public_outbound
+#
+#   tests = tiq.test.populationInference(ref.pop, test.pop, "country",
+#                                        exact = TRUE, top=-1)
+#
+# tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+# tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+# tests[p.value > 0.05]
+
+ref.pop = pop$public_outbound
+test.pop = pop2$public_outbound
+
+tests = tiq.test.populationInference(ref.pop, test.pop, "country",
+                                     exact = F, top=-1)
+
+tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+tests[p.value > 0.05]
+
+}
+
+if (F) {
+  category = "enriched"
+  group = "public_outbound"
+  pop.id = "asname"
+  date=NULL
+  pop.group = "mmasn"
+  end.date = as.Date("20140711", format="%Y%m%d")
+  end.date2 = as.Date("20140712", format="%Y%m%d")
+
+  pop = tiq.test.extractPopulationFromTI(category, group, pop.id, end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+
+  pop2 = tiq.test.extractPopulationFromTI(category, group, pop.id, end.date2,
+                                          select.sources=NULL,
+                                          split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation(pop.group, pop.id)
+
+    ref.pop = pop.mm$mmasn
+    test.pop = pop$public_outbound
+
+    tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
+                                         exact = TRUE, top=-1)
+
+  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+  tests[p.value > 0.05]
+
+  ref.pop = pop$public_outbound
+  test.pop = pop2$public_outbound
+
+  tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
+                                       exact = F, top=-1)
+
+  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+  tests[p.value > 0.05]
+
+}
+
