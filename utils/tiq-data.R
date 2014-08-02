@@ -65,20 +65,21 @@ tiq.data.loadTI <- function(category, group, date=NULL) {
   return(.tiq.data.loadData(category, group, date, valid.fields=.tiq.data.defaultTIFields))
 }
 
-# tiq.data.loadPopulation - returns a 'data.table' with 'pop.id'and 'totalIPs'
+# tiq.data.loadPopulation - returns a 'data.table' with 'pop.id' and 'totalIPs'
 # Fetches the data contained in the Population dataset contained in
 # 'pop.group', with the 'pop.id' as the key on the 'date' specified.
 #  - pop.group: the intel group you want the path for
 #  - pop.id: the key of the population dataset. If not present in the dataset
-#            the function will error out.
+#            the function will return NULL.
 #  - date: a date string in the format "YYYYMMDD", or NULL if you want the
 #          date the 'database' has available
 tiq.data.loadPopulation <- function(pop.group, pop.id, date = NULL) {
   pop.data = .tiq.data.loadData("population", pop.group, date, valid.fields=pop.id)
-  pop.data[, totalIPs := as.numeric(totalIPs)]
-  pop.data = list(pop.data)
-  names(pop.data) <- pop.group
-
+  if (!is.null(pop.data)) {
+    pop.data[, totalIPs := as.numeric(totalIPs)]
+    pop.data = list(pop.data)
+    names(pop.data) <- pop.group
+  }
   return(pop.data)
 }
 
