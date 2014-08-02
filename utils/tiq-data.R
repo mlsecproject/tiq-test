@@ -5,7 +5,6 @@
 ## This module attemps to abstract the loading of TI feeds using the directory
 ## structure we propose for the initial release.
 
-# Requires: Usage of `data.table` and `testthat` packages
 library(data.table)
 library(testthat)
 

@@ -41,7 +41,7 @@ source("tiq-test.R")
   print(overlap.plot)
 ```
 
-## Composition Test Examples (Plots)
+## Population Test Examples (Plots)
 
 ```{r}
   category = "enriched"
@@ -52,28 +52,28 @@ source("tiq-test.R")
   end.date = as.Date("20140711", format="%Y%m%d")
   end.date2 = as.Date("20140712", format="%Y%m%d")
 
-  pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
+  pop = tiq.test.extractPopulationFromTI(group, "country", end.date,
                                          select.sources=NULL)
   tiq.test.plotPopulationBars(pop, "country")
 
-  pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
+  pop = tiq.test.extractPopulationFromTI(group, c("asnumber", "asname"), end.date,
                                          select.sources=NULL)
   tiq.test.plotPopulationBars(pop, "asname")
 
-  pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
+  pop = tiq.test.extractPopulationFromTI(group, c("asnumber", "asname"), end.date,
                                          select.sources=NULL,
                                          split.ti=FALSE)
   pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
   tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
 
-  pop = tiq.test.extractPopulationFromTI(category, "public_inbound", "country", end.date,
+  pop = tiq.test.extractPopulationFromTI("public_inbound", "country", end.date,
                                          select.sources=NULL,
                                          split.ti=FALSE)
   pop.mm = tiq.data.loadPopulation("mmgeo", "country")
   tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
 ```
 
-## Composition Test Examples (Inference - Country)
+## Population Test Examples (Inference - Country)
 
 ```{r}
   category = "enriched"
@@ -84,11 +84,11 @@ source("tiq-test.R")
   end.date = as.Date("20140711", format="%Y%m%d")
   end.date2 = as.Date("20140712", format="%Y%m%d")
 
-  pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
+  pop = tiq.test.extractPopulationFromTI(group, "country", end.date,
                                          select.sources=NULL,
                                          split.ti=FALSE)
 
-  pop2 = tiq.test.extractPopulationFromTI(category, group, "country", end.date2,
+  pop2 = tiq.test.extractPopulationFromTI(group, "country", end.date2,
                                        select.sources=NULL,
                                        split.ti=FALSE)
   pop.mm = tiq.data.loadPopulation("mmgeo", "country")
@@ -122,7 +122,7 @@ tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
 tests[p.value > 0.05]
 ```
 
-## Composition Test Examples (Inference - ASN)
+## Population Test Examples (Inference - ASN)
 
 ```{r}
   category = "enriched"
@@ -133,11 +133,11 @@ tests[p.value > 0.05]
   end.date = as.Date("20140711", format="%Y%m%d")
   end.date2 = as.Date("20140712", format="%Y%m%d")
 
-  pop = tiq.test.extractPopulationFromTI(category, group, pop.id, end.date,
+  pop = tiq.test.extractPopulationFromTI(group, pop.id, end.date,
                                          select.sources=NULL,
                                          split.ti=FALSE)
 
-  pop2 = tiq.test.extractPopulationFromTI(category, group, pop.id, end.date2,
+  pop2 = tiq.test.extractPopulationFromTI(group, pop.id, end.date2,
                                           select.sources=NULL,
                                           split.ti=FALSE)
   pop.mm = tiq.data.loadPopulation(pop.group, pop.id)

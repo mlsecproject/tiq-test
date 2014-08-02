@@ -19,7 +19,16 @@ library(ggplot2)
 ## on each passing day on a specific TI feed. The comparisons are done on each
 ## 'source' over the multiple days they are available
 ################################################################################
-# tiq.test.noveltyTest
+# tiq.test.noveltyTest - returns a 'list'
+# Calculates the novelty test results for a specific 'group' of TI datasets from
+# the 'start.date' to the 'end.date'. You need at least 2 days to have a comparison.
+# You can alternatively select what sources will be a part of the test by
+# providing a character vector to 'select.sources'
+# - group: the name of the dataset group. This test works exclusively on "raw"
+# - start.date: the beginning date for the test
+# - end.date: the end date for the test
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them
 tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NULL) {
 
   test_that("tiq.test.noveltyTest: parameters must have correct types", {
@@ -76,7 +85,12 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
   return(list(ti.count=ti.count, ti.added.ratio=ti.added.ratio, ti.churn.ratio=ti.churn.ratio))
 }
 
-# tiq.test.noveltyTest
+# tiq.test.plotNoveltyTest - returns nothing (but plots the graph)
+# Plots the results of the novelty test in a (mostly) clear graph for comparisons
+# - novelty: the output of the 'tiq.test.noveltyTest' function
+# - title: a title for your plot
+# - plot.sources: a chararacter vector of the sources on the novelty test you want
+#                 to be a part of the plot, or NULL for all of them
 tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.sources=NULL) {
 
   test_that("tiq.test.plotNoveltyTest: parameters must have correct types", {
@@ -109,14 +123,18 @@ tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.
 ################################################################################
 ## OVERLAP Test
 ##
-## The novelty test is about how many indicators are being added and removed
-## on each passing day on a specific TI feed. The comparisons are done on each
-## 'source' over the multiple days they are available
+## The overlap test is about how many indicators are present and repeted on
+## multiple TI feeds. The comparisons are done on between each "source" selected
+## on the same group on a specific day
 ################################################################################
-# tiq.test.overlapTest
-# - type - The overlap test can take into consideration the FQDN sources as
+# tiq.test.overlapTest - returns a numeric matrix with the overlap ratios
+# - group: the name of the dataset group. Must exist on the selected 'type'
+# - date: the date you want the test to run in
+# - type: The overlap test can take into consideration the FQDN sources as
 #          the original entities ("raw"), or as the extracted IPv4 fields from
 #          the enriched entities ("enriched")
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them
 tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
 
   test_that("tiq.test.overlapTest: parameters must have correct types", {
@@ -151,8 +169,12 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
   return(overlap.matrix)
 }
 
-# tiq.test.plotOverlapTest
-#
+# tiq.test.plotOverlapTest - returns a ggplot2 object (plots when printed)
+# Plots the results of the overlap test in a (mostly) clear heatmap for comparisons
+# - overlap: the output of the 'tiq.test.OverlapTest' function
+# - title: a title for your plot
+# - plot.sources: a chararacter vector of the sources on the novelty test you want
+#                 to be a part of the plot, or NULL for all of them
 tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.sources=NULL) {
   if (!is.matrix(overlap) || (dim(overlap)[1] != dim(overlap)[2])) {
     msg = sprintf("tiq.test.plotOverlapTest: 'overlap' parameter mush be a square matrix")
@@ -172,12 +194,25 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
 }
 
 ################################################################################
-## COMPOSITION Tests
-##
+## POPULATION Tests
 ################################################################################
-tiq.test.extractPopulationFromTI <- function(category, group, pop.id, date,
-                                               split.ti = TRUE, select.sources=NULL) {
-
+# tiq.test.extractPopulationFromIT - returns a 'list' of population data.tables
+# Returns multiple population data.tables calculated using the sources on the
+# "enriched" TI dataset on 'date'. Use 'group' to select the dataset, and
+# 'pop.id' for the population key aggregation metric. 'split.ti' and
+# 'select.sources' control the output
+# - group: the name of the dataset group. Must exist on "enriched" category
+# - date: the date you want to use
+# - pop.id: the key of the population dataset to generate. Can be multiple keys
+# - split.ti: if TRUE, creates a popoulation for each source and returns a list
+#             with the sources as IDs. Otherwise, returns a list with a single
+#             element with the group as the ID.
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them. Only
+#                   applicable if split.ti = TRUE.
+tiq.test.extractPopulationFromTI <- function(group, pop.id, date, split.ti = TRUE,
+                                             select.sources=NULL) {
+  # Parameter checking
   test_that("tiq.test.extractPopulationFromTI: parameters must have correct types", {
     expect_that(class(category), equals("character"))
     expect_that(class(group), equals("character"))
@@ -188,10 +223,10 @@ tiq.test.extractPopulationFromTI <- function(category, group, pop.id, date,
 
   # Loading the data from the specific date
   str.date = format(date, format="%Y%m%d")
-  ti.dt = tiq.data.loadTI(category, group, str.date)
+  ti.dt = tiq.data.loadTI("enriched", group, str.date)
   if (is.null(ti.dt)) {
     msg = sprintf("tiq.data.extractPopulationFromTI: unable to locate TI for '%s', '%s', '%s'",
-                  category, group, ifelse(is.null(date), "NULL", date))
+                  "enriched", group, ifelse(is.null(date), "NULL", date))
     flog.error(msg)
     stop(msg)
   }
@@ -230,11 +265,16 @@ tiq.test.extractPopulationFromTI <- function(category, group, pop.id, date,
 }
 
 # tiq.test.plotPopulationBars
-#
+# Plots a population bar chart for simple comparisons
+# - pop.data: the population data table to be plotted
+# - pop.id: the id of the population dataset
+# - table.size: the number of bars on the graph. Try not to go too crazy!
+# - title: a title for your plot
+# - plot.sources: a chararacter vector of the sources on the novelty test you want
+#                 to be a part of the plot, or NULL for all of them
 tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
-                                        title="",
-                                        plot.sources=NULL) {
-
+                                        title="", plot.sources=NULL) {
+  # Parameter checking
   test_that("tiq.test.plotPopulationBars: parameters must have correct types", {
     expect_that(class(pop.data), equals("list"))
     expect_that(class(pop.id), equals("character"))
@@ -266,15 +306,25 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
   }
 }
 
-# tiq.test.overlapTest
-# - exact - When this is TRUE (the default), the function will execute an
-#           exact binomial test with the proportion on ref.pop. This should
-#           only be the case when ref.pop is the ACTUAL population (e.g. from
-#           MaxMind GeoIP database). Otherwise, set this to FALSE for a
-#           chi-squared test to compare the different proportions
+# tiq.test.populationInference - returns a data.table
+# Runs an inference-based comparison between the reference population ('ref.pop')
+# and the test population ('test.pop'), based on the 'pop.id' key. You should use
+# the exact option when the ref.pop was obtained from a "population" dataset, and
+# the other one when it is extracted from another TI feed. Also, the "not-exact"
+# test loses a lot of precision if the numbers are too low, so stick with the
+# Top X members od the test.pop population ideally
+#
+# - ref.pop - a population dataset (not on a list) from the reference population
+# - test.pop - a population dataset (not on a list) to compare
+# - pop.id: the id of the population dataset. Does not support multiples ATM
+# - exact: When this is TRUE (the default), the function will execute an
+#          exact binomial test with the proportion on ref.pop. This should
+#          only be the case when ref.pop is the ACTUAL population (e.g. from
+#          MaxMind GeoIP database). Otherwise, set this to FALSE for a
+#          chi-squared test to compare the different proportions
+# - top: the X top members of the test.pop we want to test. Set to -1 for all.
 tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
-                                         exact = TRUE, top=-1) {
-
+                                         exact = TRUE, top=25) {
   ## Parameter checking
 
   # Lets create copies of the data.tables, since we are messing with them
