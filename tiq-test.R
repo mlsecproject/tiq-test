@@ -7,6 +7,7 @@
 
 source("utils/log-config.R")
 source("utils/tiq-data.R")
+source("utils/tiq-helper.R")
 
 library(reshape2)
 library(ggplot2)
@@ -60,9 +61,9 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
       for (name in split.names) {
         ti.count[[name]][[str.date]] = nrow(split.ti[[name]])
         if (!is.null(prev.split.ti) && !is.null(prev.split.ti[[name]])) {
-          ti.added.ratio[[name]][[str.date]] = differenceCount(split.ti[[name]], prev.split.ti[[name]]) /
+          ti.added.ratio[[name]][[str.date]] = tiq.helper.differenceCount(split.ti[[name]], prev.split.ti[[name]]) /
                                                ti.count[[name]][[str.date]]
-          ti.churn.ratio[[name]][[str.date]] = differenceCount(prev.split.ti[[name]], split.ti[[name]]) /
+          ti.churn.ratio[[name]][[str.date]] = tiq.helper.differenceCount(prev.split.ti[[name]], split.ti[[name]]) /
                                                ti.count[[name]][[str.date]]
         }
       }
@@ -140,34 +141,14 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
   for (ti in 1:length(select.sources)) {
     for (overlap in 1:length(select.sources)) {
       # For each pairing
-      overlap.count = overlapCount(split.ti[[select.sources[ti]]],
-                                   split.ti[[select.sources[overlap]]])
+      overlap.count = tiq.helper.overlapCount(split.ti[[select.sources[ti]]],
+                                              split.ti[[select.sources[overlap]]])
       overlap.matrix[ti,overlap] = overlap.count /
                                    length(unique(split.ti[[select.sources[ti]]]$entity))
     }
   }
 
   return(overlap.matrix)
-}
-
-differenceCount <- function(test, reference) {
-  if (is.null(reference$entity) || is.null(test$entity)) {
-    msg = sprintf("differenceCount: both reference and test datasets must have the 'entity' field")
-    flog.error(msg)
-    stop(msg)
-  }
-
-  return(length(setdiff(test$entity, reference$entity)))
-}
-
-overlapCount <- function(test, reference) {
-  if (is.null(reference$entity) || is.null(test$entity)) {
-    msg = sprintf("overlapCount: both reference and test datasets must have the 'entity' field")
-    flog.error(msg)
-    stop(msg)
-  }
-
-  return(length(intersect(test$entity, reference$entity)))
 }
 
 # tiq.test.plotOverlapTest
@@ -190,8 +171,12 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
 
 }
 
+################################################################################
+## COMPOSITION Tests
+##
+################################################################################
 tiq.test.extractPopulationFromTI <- function(category, group, pop.id, date,
-                                             split.ti = TRUE, select.sources=NULL) {
+                                               split.ti = TRUE, select.sources=NULL) {
 
   test_that("tiq.test.extractPopulationFromTI: parameters must have correct types", {
     expect_that(class(category), equals("character"))
