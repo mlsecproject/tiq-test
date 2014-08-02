@@ -1,8 +1,11 @@
 ## tiq-data.R
 ##
 ## Data loading/parsing utility functions
+##
+## This module attemps to abstract the loading of TI feeds using the directory
+## structure we propose for the initial release.
 
-## Requires: Usage of `data.table` package
+## Requires: Usage of `data.table` and `testthat` packages
 library(data.table)
 library(testthat)
 
@@ -24,6 +27,7 @@ library(testthat)
     stop(msg)
   }
 
+  flog.trace("tiq.data.getDirPath: returning path '%s'", path)
   return(path)
 }
 
