@@ -1,6 +1,9 @@
 ## tiq-test.R
 ##
-##
+## Functions for the Threat Intelligence IQ Tests. These should be used for the different
+## evaluations to be run on the TI feeds
+## For more information, please refer to the README at
+## https://github.com/mlsecproject/tiq-test/
 
 source("utils/log-config.R")
 source("utils/tiq-data.R")
@@ -8,6 +11,13 @@ source("utils/tiq-data.R")
 library(reshape2)
 library(ggplot2)
 
+################################################################################
+## NOVELTY Test
+##
+## The novelty test is about how many indicators are being added and removed
+## on each passing day on a specific TI feed. The comparisons are done on each
+## 'source' over the multiple days they are available
+################################################################################
 # tiq.test.noveltyTest
 tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NULL) {
 
@@ -93,10 +103,15 @@ tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.
     lines(-novelty$ti.churn.ratio[[name]], type="l", col="red")
     abline(h=0)
   }
-
 }
 
-
+################################################################################
+## OVERLAP Test
+##
+## The novelty test is about how many indicators are being added and removed
+## on each passing day on a specific TI feed. The comparisons are done on each
+## 'source' over the multiple days they are available
+################################################################################
 # tiq.test.overlapTest
 # - type - The overlap test can take into consideration the FQDN sources as
 #          the original entities ("raw"), or as the extracted IPv4 fields from
@@ -316,7 +331,7 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
     sucesses = mapply(c, test.pop$totalIPs, test.pop$refIPs, SIMPLIFY=F,
                       USE.NAMES=F)
     totals = list(c(test.pop.total, ref.pop.total))
-    retval = mapply(prop.test, sucesses, totals, SIMPLIFY=F, USE.NAMES=F)
+    retval = suppressWarnings(mapply(prop.test, sucesses, totals, SIMPLIFY=F, USE.NAMES=F))
     names(retval) <- test.pop[[pop.id]]
   }
 
@@ -383,8 +398,6 @@ if (F) {
 #                                          split.ti=FALSE)
 #   pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
 #   tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
-#
-#
 #
 #   pop = tiq.test.extractPopulationFromTI(category, "public_inbound", "country", end.date,
 #                                          select.sources=NULL,
