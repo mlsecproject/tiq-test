@@ -6,7 +6,7 @@ output: html_document
 ---
 
 Adding the TIQ functions
-```{r}
+```{r, message=FALSE}
 source("tiq-test.R")
 ```
 
@@ -14,8 +14,8 @@ source("tiq-test.R")
 
 ```{r}
   group = "public_inbound"
-  start.date = as.Date("20140701", format="%Y%m%d")
-  end.date = as.Date("20140715", format="%Y%m%d")
+  start.date = "20140701"
+  end.date = "20140715"
 
   aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, select.sources=NULL)
   tiq.test.plotNoveltyTest(aa)
@@ -33,7 +33,7 @@ source("tiq-test.R")
 ```{r}
   group = "public_outbound"
   type = "enriched"
-  end.date = as.Date("20140715", format="%Y%m%d")
+  end.date = "20140715"
 
   overlap = tiq.test.overlapTest(group, end.date, type, select.sources=NULL)
   print(overlap)
@@ -44,13 +44,10 @@ source("tiq-test.R")
 ## Population Test Examples (Plots)
 
 ```{r}
-  category = "enriched"
   group = "public_outbound"
   pop.id = "country"
-  date=NULL
   pop.group = "mmgeo"
-  end.date = as.Date("20140711", format="%Y%m%d")
-  end.date2 = as.Date("20140712", format="%Y%m%d")
+  end.date = "20140711"
 
   pop = tiq.test.extractPopulationFromTI(group, "country", end.date,
                                          select.sources=NULL)
@@ -76,13 +73,10 @@ source("tiq-test.R")
 ## Population Test Examples (Inference - Country)
 
 ```{r}
-  category = "enriched"
   group = "public_outbound"
-  pop.id = "country"
-  date=NULL
   pop.group = "mmgeo"
-  end.date = as.Date("20140711", format="%Y%m%d")
-  end.date2 = as.Date("20140712", format="%Y%m%d")
+  end.date = "20140711"
+  end.date2 = "20140712"
 
   pop = tiq.test.extractPopulationFromTI(group, "country", end.date,
                                          select.sources=NULL,
@@ -125,13 +119,11 @@ tests[p.value > 0.05]
 ## Population Test Examples (Inference - ASN)
 
 ```{r}
-  category = "enriched"
   group = "public_outbound"
   pop.id = "asname"
-  date=NULL
   pop.group = "mmasn"
-  end.date = as.Date("20140711", format="%Y%m%d")
-  end.date2 = as.Date("20140712", format="%Y%m%d")
+  end.date = "20140711"
+  end.date2 = "20140712"
 
   pop = tiq.test.extractPopulationFromTI(group, pop.id, end.date,
                                          select.sources=NULL,

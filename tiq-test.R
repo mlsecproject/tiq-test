@@ -30,19 +30,15 @@ library(ggplot2)
 # - select.sources: a chararacter vector of the sources on the dataset you want
 #                   to be a part of the test, or NULL for all of them
 tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NULL) {
-
+  # Parameter checking
   test_that("tiq.test.noveltyTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
-    expect_that(class(start.date), equals("Date"))
-    expect_that(class(end.date), equals("Date"))
+    expect_match(start.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(end.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
   })
 
-  if (end.date <= start.date) {
-    msg = sprintf("tiq.test.noveltyTest: The end.date %s must be later than the start.date %s",
-                  as.character(end.date), as.character(start.date))
-    flog.error(msg)
-    stop(msg)
-  }
+  # Calculating the date range for the test form start and end dates
+  date.range = .tiq.data.getDateSequence(start.date, end.date)
 
   prev.split.ti = NULL
   ti.count = list()
@@ -51,10 +47,7 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
 
   ## For each date, get the respective RAW TI feed and calculate the counts
   ## per source that is a part of the group
-  for (date in start.date:end.date) {
-    date = as.Date(date, origin="1970-01-01")
-    str.date = format(date, format="%Y%m%d")
-
+  for (str.date in date.range) {
     ## Loading the RAW TI from the respective date and separating by source
     ti.dt = tiq.data.loadTI("raw", group, date=str.date)
     if (!is.null(ti.dt)) {
@@ -139,13 +132,12 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
 
   test_that("tiq.test.overlapTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
-    expect_that(class(date), equals("Date"))
+    expect_match(date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
     expect_that(class(type), equals("character"))
   })
 
   # Loading the data from the specific date
-  str.date = format(date, format="%Y%m%d")
-  ti.dt = tiq.data.loadTI(type, group, date=str.date)
+  ti.dt = tiq.data.loadTI(type, group, date=date)
   split.ti = split(ti.dt, ti.dt$source)
 
   ## Performing the overlap test only on the sources we select
@@ -214,16 +206,14 @@ tiq.test.extractPopulationFromTI <- function(group, pop.id, date, split.ti = TRU
                                              select.sources=NULL) {
   # Parameter checking
   test_that("tiq.test.extractPopulationFromTI: parameters must have correct types", {
-    expect_that(class(category), equals("character"))
     expect_that(class(group), equals("character"))
     expect_that(class(pop.id), equals("character"))
-    expect_that(class(date), equals("Date"))
+    expect_match(date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
     expect_that(class(split.ti), equals("logical"))
   })
 
   # Loading the data from the specific date
-  str.date = format(date, format="%Y%m%d")
-  ti.dt = tiq.data.loadTI("enriched", group, str.date)
+  ti.dt = tiq.data.loadTI("enriched", group, date)
   if (is.null(ti.dt)) {
     msg = sprintf("tiq.data.extractPopulationFromTI: unable to locate TI for '%s', '%s', '%s'",
                   "enriched", group, ifelse(is.null(date), "NULL", date))
