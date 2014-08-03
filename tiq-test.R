@@ -61,6 +61,9 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
       }
 
       for (name in split.names) {
+        setkey(split.ti[[name]], entity)
+        split.ti[[name]] = unique(split.ti[[name]])
+
         ti.count[[name]][[str.date]] = nrow(split.ti[[name]])
         if (!is.null(prev.split.ti) && !is.null(prev.split.ti[[name]])) {
           ti.added.ratio[[name]][[str.date]] = tiq.helper.differenceCount(split.ti[[name]], prev.split.ti[[name]]) /
@@ -148,6 +151,13 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
   overlap.matrix = matrix(nrow=length(select.sources), ncol=length(select.sources),
                           dimnames=list(select.sources, select.sources))
 
+  # Removing duplicated entries from each source
+  for (ti in 1:length(select.sources)) {
+    setkey(split.ti[[select.sources[ti]]], entity)
+    split.ti[[select.sources[ti]]] = unique(split.ti[[select.sources[ti]]])
+  }
+
+  # Calculating the overlap for each pairing
   for (ti in 1:length(select.sources)) {
     for (overlap in 1:length(select.sources)) {
       # For each pairing
