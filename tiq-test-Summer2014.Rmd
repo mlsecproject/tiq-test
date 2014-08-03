@@ -6,13 +6,58 @@ output: html_document
 ---
 
 Adding the TIQ functions
-```{r, message=FALSE}
+```{r, message=FALSE, cache=TRUE}
 source("tiq-test.R")
+```
+
+## Acessing the data using TIQ-TEST
+
+We can use the `tiq.data` functions to load the Threat Intelligence datasets from
+the database for exploration using R. We have defaulted to the use of `data.table`
+objects for this because they are faster and you can write tighter code around it
+(sorry Hadleyverse fans).
+
+We have roughly a month of data available on this public dataset:
+```{r, message=FALSE, cache=TRUE}
+.tiq.data.getAvailableDates("raw", "public_outbound")
+```
+
+This is an example of "RAW" (not enriched) outbound data imported from combine output
+```{r, message=FALSE, cache=TRUE}
+outbound.ti = tiq.data.loadTI("raw", "public_outbound", "20140701")
+outbound.ti[, list(entity, type, direction, source, date)]
+```
+
+This specific outbound dataset has the following sources included:
+
+```{r, message=FALSE, cache=TRUE}
+outbound.ti = tiq.data.loadTI("raw", "public_outbound", "20140701")
+unique(outbound.ti$source)
+```
+
+We can do the same for the inbound data we have to see the sources we have available:
+```{r, message=FALSE, cache=TRUE}
+inbound.ti = tiq.data.loadTI("raw", "public_inbound", "20140701")
+unique(inbound.ti$source)
+```
+
+SIDE NOTE: please don't add non-malicious domains to malware domain lists, ok? :)
+
+```{r, message=FALSE, cache=TRUE}
+outbound.ti = tiq.data.loadTI("raw", "public_outbound", "20140701")
+outbound.ti[entity %like% "google.com", list(entity, type, direction, source, date)] 
+```
+
+We can use the same `loadTI` function to also gather the enriched datasets:
+```{r, message=FALSE, cache=TRUE}
+enrich.ti = tiq.data.loadTI("enriched", "public_outbound", "20140710")
+enrich.ti = enrich.ti[, notes := NULL]
+enrich.ti[c(2,22264, 22266)]
 ```
 
 ## Novelty test examples
 
-```{r}
+```{r, cache=TRUE}
   group = "public_inbound"
   start.date = "20140701"
   end.date = "20140715"
@@ -30,7 +75,7 @@ source("tiq-test.R")
 
 ## Overlap Test Examples
 
-```{r}
+```{r, cache=TRUE}
   group = "public_outbound"
   type = "enriched"
   end.date = "20140715"
@@ -43,7 +88,7 @@ source("tiq-test.R")
 
 ## Population Test Examples (Plots)
 
-```{r}
+```{r, cache=TRUE}
   group = "public_outbound"
   pop.id = "country"
   pop.group = "mmgeo"
@@ -72,7 +117,7 @@ source("tiq-test.R")
 
 ## Population Test Examples (Inference - Country)
 
-```{r}
+```{r, cache=TRUE}
   group = "public_outbound"
   pop.group = "mmgeo"
   end.date = "20140711"
@@ -90,7 +135,7 @@ source("tiq-test.R")
 
 Comparing the population from day X to day X+1
 
-```{r}
+```{r, cache=TRUE}
 ref.pop = pop$public_outbound
 test.pop = pop2$public_outbound
 
@@ -104,7 +149,7 @@ tests[p.value > 0.05]
 
 Comparing the population from day X to the "true" population
 
-```{r}
+```{r, cache=TRUE}
 ref.pop = pop.mm$mmgeo
 test.pop = pop2$public_outbound
 
@@ -118,7 +163,7 @@ tests[p.value > 0.05]
 
 ## Population Test Examples (Inference - ASN)
 
-```{r}
+```{r, cache=TRUE}
   group = "public_outbound"
   pop.id = "asname"
   pop.group = "mmasn"
