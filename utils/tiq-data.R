@@ -49,6 +49,30 @@ library(testthat)
   return(dates)
 }
 
+# .tiq.data.getDateSequence - returns 'character' vector
+# Given a 'start.date' and an 'end.date' both in character "YYYYMMDD" format
+# creates a character vector of the sequence of dates between both
+#  - start.date: the initial date of the sequence
+#  - end.date: the final date of the sequence
+.tiq.data.getDateSequence <- function(start.date, end.date) {
+  # We need to have at least 2 different sequantial days to greate the range
+  if (end.date <= start.date) {
+    msg = sprintf("tiq.data.getDateSequence: The end.date %s must be later than the start.date %s",
+                  end.date, start.date)
+    flog.error(msg)
+    stop(msg)
+  }
+
+  date.range = sapply(
+    seq(from=as.Date(start.date, format="%Y%m%d", tz="GMT"),
+        to=as.Date(end.date, format="%Y%m%d", tz="GMT"),
+        by="day"),
+    function(x) format(x, "%Y%m%d", tz="GMT")
+  )
+
+  return(date.range)
+}
+
 ################################################################################
 ## TI and Population loading data functions
 ################################################################################
@@ -90,7 +114,7 @@ tiq.data.loadPopulation <- function(pop.group, pop.id, date = NULL) {
 #  - date: a date string in the format "YYYYMMDD", or NULL if you want the
 #          date the 'database' has available
 #  - valid.fields: the fields we should look for in the dataset to validate that
-#                  it is of the correct type
+#                  i  t is of the correct type
 .tiq.data.loadData <- function(category, group, date=NULL, valid.fields=character(0)) {
 
   test_that("tiq.data.loadData: unable to open data - 'category' or 'group' are invalid", {
