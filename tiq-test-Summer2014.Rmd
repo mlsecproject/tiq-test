@@ -1,0 +1,156 @@
+---
+title: "Measuring the IQ of your Threat Intelligence - Summer 2014"
+author: "Alex Pinto & Kyle Maxwell"
+date: "August 1, 2014"
+output: html_document
+---
+
+Adding the TIQ functions
+```{r, message=FALSE}
+source("tiq-test.R")
+```
+
+## Novelty test examples
+
+```{r}
+  group = "public_inbound"
+  start.date = "20140701"
+  end.date = "20140715"
+
+  aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, select.sources=NULL)
+  tiq.test.plotNoveltyTest(aa)
+
+  aa2 = tiq.test.noveltyTest("public_outbound", start.date, end.date,
+                             select.sources=c("alienvault", "zeus"))
+  tiq.test.plotNoveltyTest(aa2)
+
+  bb = tiq.test.noveltyTest("public_inbound", start.date, end.date, select.sources=NULL)
+  tiq.test.plotNoveltyTest(bb)
+```
+
+## Overlap Test Examples
+
+```{r}
+  group = "public_outbound"
+  type = "enriched"
+  end.date = "20140715"
+
+  overlap = tiq.test.overlapTest(group, end.date, type, select.sources=NULL)
+  print(overlap)
+  overlap.plot = tiq.test.plotOverlapTest(overlap, title=paste0("OverlapTest - ", group, " - ", end.date))
+  print(overlap.plot)
+```
+
+## Population Test Examples (Plots)
+
+```{r}
+  group = "public_outbound"
+  pop.id = "country"
+  pop.group = "mmgeo"
+  end.date = "20140711"
+
+  pop = tiq.test.extractPopulationFromTI(group, "country", end.date,
+                                         select.sources=NULL)
+  tiq.test.plotPopulationBars(pop, "country")
+
+  pop = tiq.test.extractPopulationFromTI(group, c("asnumber", "asname"), end.date,
+                                         select.sources=NULL)
+  tiq.test.plotPopulationBars(pop, "asname")
+
+  pop = tiq.test.extractPopulationFromTI(group, c("asnumber", "asname"), end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
+  tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
+
+  pop = tiq.test.extractPopulationFromTI("public_inbound", "country", end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
+  tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
+```
+
+## Population Test Examples (Inference - Country)
+
+```{r}
+  group = "public_outbound"
+  pop.group = "mmgeo"
+  end.date = "20140711"
+  end.date2 = "20140712"
+
+  pop = tiq.test.extractPopulationFromTI(group, "country", end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+
+  pop2 = tiq.test.extractPopulationFromTI(group, "country", end.date2,
+                                       select.sources=NULL,
+                                       split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
+```
+
+Comparing the population from day X to day X+1
+
+```{r}
+ref.pop = pop$public_outbound
+test.pop = pop2$public_outbound
+
+tests = tiq.test.populationInference(ref.pop, test.pop, "country",
+                                     exact = F, top=-1)
+
+tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+tests[p.value > 0.05]
+```
+
+Comparing the population from day X to the "true" population
+
+```{r}
+ref.pop = pop.mm$mmgeo
+test.pop = pop2$public_outbound
+
+tests = tiq.test.populationInference(ref.pop, test.pop, "country",
+                                     exact = F, top=-1)
+
+tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+tests[p.value > 0.05]
+```
+
+## Population Test Examples (Inference - ASN)
+
+```{r}
+  group = "public_outbound"
+  pop.id = "asname"
+  pop.group = "mmasn"
+  end.date = "20140711"
+  end.date2 = "20140712"
+
+  pop = tiq.test.extractPopulationFromTI(group, pop.id, end.date,
+                                         select.sources=NULL,
+                                         split.ti=FALSE)
+
+  pop2 = tiq.test.extractPopulationFromTI(group, pop.id, end.date2,
+                                          select.sources=NULL,
+                                          split.ti=FALSE)
+  pop.mm = tiq.data.loadPopulation(pop.group, pop.id)
+
+    ref.pop = pop.mm$mmasn
+    test.pop = pop$public_outbound
+
+    tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
+                                         exact = TRUE, top=-1)
+
+  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+  tests[p.value > 0.05]
+
+  ref.pop = pop$public_outbound
+  test.pop = pop2$public_outbound
+
+  tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
+                                       exact = F, top=-1)
+
+  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+  tests[p.value > 0.05]
+```

@@ -1,28 +1,44 @@
 ## tiq-test.R
 ##
-##
+## Functions for the Threat Intelligence IQ Tests. These should be used for the different
+## evaluations to be run on the TI feeds
+## For more information, please refer to the README at
+## https://github.com/mlsecproject/tiq-test/
 
 source("utils/log-config.R")
 source("utils/tiq-data.R")
+source("utils/tiq-helper.R")
 
 library(reshape2)
 library(ggplot2)
 
-# tiq.test.noveltyTest
+################################################################################
+## NOVELTY Test
+##
+## The novelty test is about how many indicators are being added and removed
+## on each passing day on a specific TI feed. The comparisons are done on each
+## 'source' over the multiple days they are available
+################################################################################
+# tiq.test.noveltyTest - returns a 'list'
+# Calculates the novelty test results for a specific 'group' of TI datasets from
+# the 'start.date' to the 'end.date'. You need at least 2 days to have a comparison.
+# You can alternatively select what sources will be a part of the test by
+# providing a character vector to 'select.sources'
+# - group: the name of the dataset group. This test works exclusively on "raw"
+# - start.date: the beginning date for the test
+# - end.date: the end date for the test
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them
 tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NULL) {
-
+  # Parameter checking
   test_that("tiq.test.noveltyTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
-    expect_that(class(start.date), equals("Date"))
-    expect_that(class(end.date), equals("Date"))
+    expect_match(start.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(end.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
   })
 
-  if (end.date <= start.date) {
-    msg = sprintf("tiq.test.noveltyTest: The end.date %s must be later than the start.date %s",
-                  as.character(end.date), as.character(start.date))
-    flog.error(msg)
-    stop(msg)
-  }
+  # Calculating the date range for the test form start and end dates
+  date.range = .tiq.data.getDateSequence(start.date, end.date)
 
   prev.split.ti = NULL
   ti.count = list()
@@ -31,10 +47,7 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
 
   ## For each date, get the respective RAW TI feed and calculate the counts
   ## per source that is a part of the group
-  for (date in start.date:end.date) {
-    date = as.Date(date, origin="1970-01-01")
-    str.date = format(date, format="%Y%m%d")
-
+  for (str.date in date.range) {
     ## Loading the RAW TI from the respective date and separating by source
     ti.dt = tiq.data.loadTI("raw", group, date=str.date)
     if (!is.null(ti.dt)) {
@@ -48,11 +61,14 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
       }
 
       for (name in split.names) {
+        setkey(split.ti[[name]], entity)
+        split.ti[[name]] = unique(split.ti[[name]])
+
         ti.count[[name]][[str.date]] = nrow(split.ti[[name]])
         if (!is.null(prev.split.ti) && !is.null(prev.split.ti[[name]])) {
-          ti.added.ratio[[name]][[str.date]] = differenceCount(split.ti[[name]], prev.split.ti[[name]]) /
+          ti.added.ratio[[name]][[str.date]] = tiq.helper.differenceCount(split.ti[[name]], prev.split.ti[[name]]) /
                                                ti.count[[name]][[str.date]]
-          ti.churn.ratio[[name]][[str.date]] = differenceCount(prev.split.ti[[name]], split.ti[[name]]) /
+          ti.churn.ratio[[name]][[str.date]] = tiq.helper.differenceCount(prev.split.ti[[name]], split.ti[[name]]) /
                                                ti.count[[name]][[str.date]]
         }
       }
@@ -65,7 +81,12 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
   return(list(ti.count=ti.count, ti.added.ratio=ti.added.ratio, ti.churn.ratio=ti.churn.ratio))
 }
 
-# tiq.test.noveltyTest
+# tiq.test.plotNoveltyTest - returns nothing (but plots the graph)
+# Plots the results of the novelty test in a (mostly) clear graph for comparisons
+# - novelty: the output of the 'tiq.test.noveltyTest' function
+# - title: a title for your plot
+# - plot.sources: a chararacter vector of the sources on the novelty test you want
+#                 to be a part of the plot, or NULL for all of them
 tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.sources=NULL) {
 
   test_that("tiq.test.plotNoveltyTest: parameters must have correct types", {
@@ -93,25 +114,33 @@ tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.
     lines(-novelty$ti.churn.ratio[[name]], type="l", col="red")
     abline(h=0)
   }
-
 }
 
-
-# tiq.test.overlapTest
-# - type - The overlap test can take into consideration the FQDN sources as
+################################################################################
+## OVERLAP Test
+##
+## The overlap test is about how many indicators are present and repeted on
+## multiple TI feeds. The comparisons are done on between each "source" selected
+## on the same group on a specific day
+################################################################################
+# tiq.test.overlapTest - returns a numeric matrix with the overlap ratios
+# - group: the name of the dataset group. Must exist on the selected 'type'
+# - date: the date you want the test to run in
+# - type: The overlap test can take into consideration the FQDN sources as
 #          the original entities ("raw"), or as the extracted IPv4 fields from
 #          the enriched entities ("enriched")
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them
 tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
 
   test_that("tiq.test.overlapTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
-    expect_that(class(date), equals("Date"))
+    expect_match(date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
     expect_that(class(type), equals("character"))
   })
 
   # Loading the data from the specific date
-  str.date = format(date, format="%Y%m%d")
-  ti.dt = tiq.data.loadTI(type, group, date=str.date)
+  ti.dt = tiq.data.loadTI(type, group, date=date)
   split.ti = split(ti.dt, ti.dt$source)
 
   ## Performing the overlap test only on the sources we select
@@ -122,11 +151,18 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
   overlap.matrix = matrix(nrow=length(select.sources), ncol=length(select.sources),
                           dimnames=list(select.sources, select.sources))
 
+  # Removing duplicated entries from each source
+  for (ti in 1:length(select.sources)) {
+    setkey(split.ti[[select.sources[ti]]], entity)
+    split.ti[[select.sources[ti]]] = unique(split.ti[[select.sources[ti]]])
+  }
+
+  # Calculating the overlap for each pairing
   for (ti in 1:length(select.sources)) {
     for (overlap in 1:length(select.sources)) {
       # For each pairing
-      overlap.count = overlapCount(split.ti[[select.sources[ti]]],
-                                   split.ti[[select.sources[overlap]]])
+      overlap.count = tiq.helper.overlapCount(split.ti[[select.sources[ti]]],
+                                              split.ti[[select.sources[overlap]]])
       overlap.matrix[ti,overlap] = overlap.count /
                                    length(unique(split.ti[[select.sources[ti]]]$entity))
     }
@@ -135,28 +171,12 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
   return(overlap.matrix)
 }
 
-differenceCount <- function(test, reference) {
-  if (is.null(reference$entity) || is.null(test$entity)) {
-    msg = sprintf("differenceCount: both reference and test datasets must have the 'entity' field")
-    flog.error(msg)
-    stop(msg)
-  }
-
-  return(length(setdiff(test$entity, reference$entity)))
-}
-
-overlapCount <- function(test, reference) {
-  if (is.null(reference$entity) || is.null(test$entity)) {
-    msg = sprintf("overlapCount: both reference and test datasets must have the 'entity' field")
-    flog.error(msg)
-    stop(msg)
-  }
-
-  return(length(intersect(test$entity, reference$entity)))
-}
-
-# tiq.test.plotOverlapTest
-#
+# tiq.test.plotOverlapTest - returns a ggplot2 object (plots when printed)
+# Plots the results of the overlap test in a (mostly) clear heatmap for comparisons
+# - overlap: the output of the 'tiq.test.OverlapTest' function
+# - title: a title for your plot
+# - plot.sources: a chararacter vector of the sources on the novelty test you want
+#                 to be a part of the plot, or NULL for all of them
 tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.sources=NULL) {
   if (!is.matrix(overlap) || (dim(overlap)[1] != dim(overlap)[2])) {
     msg = sprintf("tiq.test.plotOverlapTest: 'overlap' parameter mush be a square matrix")
@@ -175,23 +195,38 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
 
 }
 
-tiq.test.extractPopulationFromTI <- function(category, group, pop.id, date,
-                                             split.ti = TRUE, select.sources=NULL) {
-
+################################################################################
+## POPULATION Tests
+################################################################################
+# tiq.test.extractPopulationFromIT - returns a 'list' of population data.tables
+# Returns multiple population data.tables calculated using the sources on the
+# "enriched" TI dataset on 'date'. Use 'group' to select the dataset, and
+# 'pop.id' for the population key aggregation metric. 'split.ti' and
+# 'select.sources' control the output
+# - group: the name of the dataset group. Must exist on "enriched" category
+# - date: the date you want to use
+# - pop.id: the key of the population dataset to generate. Can be multiple keys
+# - split.ti: if TRUE, creates a popoulation for each source and returns a list
+#             with the sources as IDs. Otherwise, returns a list with a single
+#             element with the group as the ID.
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them. Only
+#                   applicable if split.ti = TRUE.
+tiq.test.extractPopulationFromTI <- function(group, pop.id, date, split.ti = TRUE,
+                                             select.sources=NULL) {
+  # Parameter checking
   test_that("tiq.test.extractPopulationFromTI: parameters must have correct types", {
-    expect_that(class(category), equals("character"))
     expect_that(class(group), equals("character"))
     expect_that(class(pop.id), equals("character"))
-    expect_that(class(date), equals("Date"))
+    expect_match(date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
     expect_that(class(split.ti), equals("logical"))
   })
 
   # Loading the data from the specific date
-  str.date = format(date, format="%Y%m%d")
-  ti.dt = tiq.data.loadTI(category, group, str.date)
+  ti.dt = tiq.data.loadTI("enriched", group, date)
   if (is.null(ti.dt)) {
     msg = sprintf("tiq.data.extractPopulationFromTI: unable to locate TI for '%s', '%s', '%s'",
-                  category, group, ifelse(is.null(date), "NULL", date))
+                  "enriched", group, ifelse(is.null(date), "NULL", date))
     flog.error(msg)
     stop(msg)
   }
@@ -230,11 +265,16 @@ tiq.test.extractPopulationFromTI <- function(category, group, pop.id, date,
 }
 
 # tiq.test.plotPopulationBars
-#
+# Plots a population bar chart for simple comparisons
+# - pop.data: the population data table to be plotted
+# - pop.id: the id of the population dataset
+# - table.size: the number of bars on the graph. Try not to go too crazy!
+# - title: a title for your plot
+# - plot.sources: a chararacter vector of the sources on the novelty test you want
+#                 to be a part of the plot, or NULL for all of them
 tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
-                                        title="",
-                                        plot.sources=NULL) {
-
+                                        title="", plot.sources=NULL) {
+  # Parameter checking
   test_that("tiq.test.plotPopulationBars: parameters must have correct types", {
     expect_that(class(pop.data), equals("list"))
     expect_that(class(pop.id), equals("character"))
@@ -266,15 +306,25 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
   }
 }
 
-# tiq.test.overlapTest
-# - exact - When this is TRUE (the default), the function will execute an
-#           exact binomial test with the proportion on ref.pop. This should
-#           only be the case when ref.pop is the ACTUAL population (e.g. from
-#           MaxMind GeoIP database). Otherwise, set this to FALSE for a
-#           chi-squared test to compare the different proportions
+# tiq.test.populationInference - returns a data.table
+# Runs an inference-based comparison between the reference population ('ref.pop')
+# and the test population ('test.pop'), based on the 'pop.id' key. You should use
+# the exact option when the ref.pop was obtained from a "population" dataset, and
+# the other one when it is extracted from another TI feed. Also, the "not-exact"
+# test loses a lot of precision if the numbers are too low, so stick with the
+# Top X members od the test.pop population ideally
+#
+# - ref.pop - a population dataset (not on a list) from the reference population
+# - test.pop - a population dataset (not on a list) to compare
+# - pop.id: the id of the population dataset. Does not support multiples ATM
+# - exact: When this is TRUE (the default), the function will execute an
+#          exact binomial test with the proportion on ref.pop. This should
+#          only be the case when ref.pop is the ACTUAL population (e.g. from
+#          MaxMind GeoIP database). Otherwise, set this to FALSE for a
+#          chi-squared test to compare the different proportions
+# - top: the X top members of the test.pop we want to test. Set to -1 for all.
 tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
-                                         exact = TRUE, top=-1) {
-
+                                         exact = TRUE, top=25) {
   ## Parameter checking
 
   # Lets create copies of the data.tables, since we are messing with them
@@ -316,7 +366,7 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
     sucesses = mapply(c, test.pop$totalIPs, test.pop$refIPs, SIMPLIFY=F,
                       USE.NAMES=F)
     totals = list(c(test.pop.total, ref.pop.total))
-    retval = mapply(prop.test, sucesses, totals, SIMPLIFY=F, USE.NAMES=F)
+    retval = suppressWarnings(mapply(prop.test, sucesses, totals, SIMPLIFY=F, USE.NAMES=F))
     names(retval) <- test.pop[[pop.id]]
   }
 
@@ -330,137 +380,3 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
 
   return(dt.retval)
 }
-
-
-#####
-## Simple validation code
-##
-if (F) {
-  group = "public_inbound"
-  start.date = as.Date("20140701", format="%Y%m%d")
-  end.date = as.Date("20140715", format="%Y%m%d")
-
-
-  aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, select.sources=NULL)
-  tiq.test.plotNoveltyTest(aa)
-  aa2 = tiq.test.noveltyTest("public_outbound", start.date, end.date,
-                             select.sources=c("alienvault", "zeus"))
-  tiq.test.plotNoveltyTest(aa2)
-  bb = tiq.test.noveltyTest("public_inbound", start.date, end.date, select.sources=NULL)
-  tiq.test.plotNoveltyTest(bb)
-}
-
-if (F) {
-  group = "public_outbound"
-  type = "enriched"
-  end.date = as.Date("20140715", format="%Y%m%d")
-
-  overlap = tiq.test.overlapTest(group, end.date, type, select.sources=NULL)
-  print(overlap)
-  overlap.plot = tiq.test.plotOverlapTest(overlap, title=paste0("OverlapTest - ", group, " - ", end.date))
-  print(overlap.plot)
-}
-
-if (F) {
-  category = "enriched"
-  group = "public_outbound"
-  pop.id = "country"
-  date=NULL
-  pop.group = "mmgeo"
-  end.date = as.Date("20140711", format="%Y%m%d")
-  end.date2 = as.Date("20140712", format="%Y%m%d")
-
-#   pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
-#                                          select.sources=NULL)
-#   tiq.test.plotPopulationBars(pop, "country")
-#
-#   pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
-#                                          select.sources=NULL)
-#   tiq.test.plotPopulationBars(pop, "asname")
-#
-#   pop = tiq.test.extractPopulationFromTI(category, group, c("asnumber", "asname"), end.date,
-#                                          select.sources=NULL,
-#                                          split.ti=FALSE)
-#   pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
-#   tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
-#
-#
-#
-#   pop = tiq.test.extractPopulationFromTI(category, "public_inbound", "country", end.date,
-#                                          select.sources=NULL,
-#                                          split.ti=FALSE)
-#   pop.mm = tiq.data.loadPopulation("mmgeo", "country")
-#   tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
-
-  pop = tiq.test.extractPopulationFromTI(category, group, "country", end.date,
-                                         select.sources=NULL,
-                                         split.ti=FALSE)
-
-  pop2 = tiq.test.extractPopulationFromTI(category, group, "country", end.date2,
-                                       select.sources=NULL,
-                                       split.ti=FALSE)
-  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
-  #tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
-
-#   ref.pop = pop.mm$mmgeo
-#   test.pop = pop$public_outbound
-#
-#   tests = tiq.test.populationInference(ref.pop, test.pop, "country",
-#                                        exact = TRUE, top=-1)
-#
-# tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
-# tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
-# tests[p.value > 0.05]
-
-ref.pop = pop$public_outbound
-test.pop = pop2$public_outbound
-
-tests = tiq.test.populationInference(ref.pop, test.pop, "country",
-                                     exact = F, top=-1)
-
-tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
-tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
-tests[p.value > 0.05]
-
-}
-
-if (F) {
-  category = "enriched"
-  group = "public_outbound"
-  pop.id = "asname"
-  date=NULL
-  pop.group = "mmasn"
-  end.date = as.Date("20140711", format="%Y%m%d")
-  end.date2 = as.Date("20140712", format="%Y%m%d")
-
-  pop = tiq.test.extractPopulationFromTI(category, group, pop.id, end.date,
-                                         select.sources=NULL,
-                                         split.ti=FALSE)
-
-  pop2 = tiq.test.extractPopulationFromTI(category, group, pop.id, end.date2,
-                                          select.sources=NULL,
-                                          split.ti=FALSE)
-  pop.mm = tiq.data.loadPopulation(pop.group, pop.id)
-
-    ref.pop = pop.mm$mmasn
-    test.pop = pop$public_outbound
-
-    tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
-                                         exact = TRUE, top=-1)
-
-  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
-  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
-  tests[p.value > 0.05]
-
-  ref.pop = pop$public_outbound
-  test.pop = pop2$public_outbound
-
-  tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
-                                       exact = F, top=-1)
-
-  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
-  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
-  tests[p.value > 0.05]
-
-}
-
