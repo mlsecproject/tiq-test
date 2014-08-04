@@ -111,10 +111,10 @@ Similarly, an example applying the Overlap Test to the outbound dataset
 
 What about that day when `malwaredomainlist` and `malwaredomains` moved together on the novelty test?
 ```{r, fig.height=10, fig.width=10, fig.align='center'}
-  overlap = tiq.test.overlapTest("public_outbound", "20140628", "enriched", 
+  overlap = tiq.test.overlapTest("public_outbound", "20140629", "enriched", 
                                  select.sources=c("alienvault", "malwaredomainlist",
                                                   "malwaredomains", "zeus"))
-  overlap.plot = tiq.test.plotOverlapTest(overlap, title="Overlap Test - Outbound Data Sources - 20140628")
+  overlap.plot = tiq.test.plotOverlapTest(overlap, title="Overlap Test - Outbound Data Sources - 20140629")
   print(overlap.plot)
 ```
 
