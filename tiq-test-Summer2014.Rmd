@@ -118,34 +118,41 @@ What about that day when `malwaredomainlist` and `malwaredomains` moved together
   print(overlap.plot)
 ```
 
-## Population Test Examples (Plots)
+## Population Test Plots
 
-```{r}
-  group = "public_outbound"
-  pop.id = "country"
-  pop.group = "mmgeo"
-  end.date = "20140711"
+With the population data we can generate some plot to compare the top quantities
+of reported IP addresses on a specific date by Country
 
-  pop = tiq.test.extractPopulationFromTI(group, "country", end.date,
-                                         select.sources=NULL)
-  tiq.test.plotPopulationBars(pop, "country")
+```{r, fig.height=10, fig.width=10, fig.align='center'}
+  outbound.pop = tiq.test.extractPopulationFromTI("public_outbound", "country", 
+                                                  date = "20140711",
+                                                  select.sources=NULL, split.ti=F)
+  inbound.pop = tiq.test.extractPopulationFromTI("public_inbound", "country", 
+                                                 date = "20140711",
+                                                 select.sources=NULL, split.ti=F)
 
-  pop = tiq.test.extractPopulationFromTI(group, c("asnumber", "asname"), end.date,
-                                         select.sources=NULL)
-  tiq.test.plotPopulationBars(pop, "asname")
-
-  pop = tiq.test.extractPopulationFromTI(group, c("asnumber", "asname"), end.date,
-                                         select.sources=NULL,
-                                         split.ti=FALSE)
-  pop.mm = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
-  tiq.test.plotPopulationBars(c(pop, pop.mm), "asname")
-
-  pop = tiq.test.extractPopulationFromTI("public_inbound", "country", end.date,
-                                         select.sources=NULL,
-                                         split.ti=FALSE)
-  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
-  tiq.test.plotPopulationBars(c(pop, pop.mm), "country")
+  complete.pop = tiq.data.loadPopulation("mmgeo", "country")
+  tiq.test.plotPopulationBars(c(inbound.pop, outbound.pop, complete.pop), "country")
 ```
+
+Or we can compare them by the AS that those IP addresses are a part of. Of course,
+there is an infinite number of more AS's then Countries, so the distribution is much more
+granular.
+
+```{r, fig.height=10, fig.width=10, fig.align='center'}
+
+  outbound.pop = tiq.test.extractPopulationFromTI("public_outbound", c("asnumber", "asname"), 
+                                                  date = "20140711",
+                                                  select.sources=NULL, split.ti=F)
+  inbound.pop = tiq.test.extractPopulationFromTI("public_inbound", c("asnumber", "asname"), 
+                                                 date = "20140711",
+                                                 select.sources=NULL, split.ti=F)
+
+  complete.pop = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
+  tiq.test.plotPopulationBars(c(inbound.pop, outbound.pop, complete.pop), "asname")
+
+```
+
 
 ## Population Test Examples (Inference - Country)
 
