@@ -5,8 +5,8 @@ date: "August 1, 2014"
 output: html_document
 ---
 
-Adding the TIQ functions
-```{r, message=FALSE, cache=TRUE}
+Adding the TIQ-TEST functions
+```{r, message=FALSE}
 source("tiq-test.R")
 ```
 
@@ -18,64 +18,74 @@ objects for this because they are faster and you can write tighter code around i
 (sorry Hadleyverse fans).
 
 We have roughly a month of data available on this public dataset:
-```{r, message=FALSE, cache=TRUE}
+```{r, message=FALSE}
 .tiq.data.getAvailableDates("raw", "public_outbound")
 ```
 
 This is an example of "RAW" (not enriched) outbound data imported from combine output
-```{r, message=FALSE, cache=TRUE}
+```{r, message=FALSE}
 outbound.ti = tiq.data.loadTI("raw", "public_outbound", "20140701")
 outbound.ti[, list(entity, type, direction, source, date)]
 ```
 
 This specific outbound dataset has the following sources included:
 
-```{r, message=FALSE, cache=TRUE}
+```{r, message=FALSE}
 outbound.ti = tiq.data.loadTI("raw", "public_outbound", "20140701")
 unique(outbound.ti$source)
 ```
 
 We can do the same for the inbound data we have to see the sources we have available:
-```{r, message=FALSE, cache=TRUE}
+```{r, message=FALSE}
 inbound.ti = tiq.data.loadTI("raw", "public_inbound", "20140701")
 unique(inbound.ti$source)
 ```
 
 SIDE NOTE: please don't add non-malicious domains to malware domain lists, ok? :)
 
-```{r, message=FALSE, cache=TRUE}
+```{r, message=FALSE}
 outbound.ti = tiq.data.loadTI("raw", "public_outbound", "20140701")
 outbound.ti[entity %like% "google.com", list(entity, type, direction, source, date)] 
 ```
 
 We can use the same `loadTI` function to also gather the enriched datasets:
-```{r, message=FALSE, cache=TRUE}
+```{r, message=FALSE}
 enrich.ti = tiq.data.loadTI("enriched", "public_outbound", "20140710")
 enrich.ti = enrich.ti[, notes := NULL]
 enrich.ti[c(2,22264, 22266)]
 ```
 
-## Novelty test examples
+## Novelty Test
 
-```{r, cache=TRUE}
-  group = "public_inbound"
-  start.date = "20140701"
-  end.date = "20140715"
+The novelty test should be used to try get a sense of the ratio of new indicators
+and the retiring of old ones as the data feeds progresses day-by-day.
 
-  aa = tiq.test.noveltyTest("public_outbound", start.date, end.date, select.sources=NULL)
-  tiq.test.plotNoveltyTest(aa)
+There is no intrinsic right or wrong, but less frequent updates usually means 
+that they are carefully curated (or abandoned :) ). Curated is great, abandoned
+is very bad.
 
-  aa2 = tiq.test.noveltyTest("public_outbound", start.date, end.date,
-                             select.sources=c("alienvault", "zeus"))
-  tiq.test.plotNoveltyTest(aa2)
+Here are some results of running the Novelty test on the inbound data:
 
-  bb = tiq.test.noveltyTest("public_inbound", start.date, end.date, select.sources=NULL)
-  tiq.test.plotNoveltyTest(bb)
+```{r, fig.height=10, fig.width=10, fig.align='center'}
+inbound.novelty = tiq.test.noveltyTest("public_inbound", "20140615", "20140715", 
+                                select.sources=c("alienvault", "blocklistde", 
+                                                 "dshield", "charleshaley"))
+tiq.test.plotNoveltyTest(inbound.novelty)
 ```
+
+And results running on the outbound date:
+
+```{r, fig.height=10, fig.width=10, fig.align='center'}
+outbound.novelty = tiq.test.noveltyTest("public_outbound", "20140615", "20140715", 
+                                select.sources=c("alienvault", "malwaregroup", 
+                                                 "malwaredomainlist", "malwaredomains"))
+tiq.test.plotNoveltyTest(outbound.novelty)
+```
+
 
 ## Overlap Test Examples
 
-```{r, cache=TRUE}
+```{r}
   group = "public_outbound"
   type = "enriched"
   end.date = "20140715"
@@ -88,7 +98,7 @@ enrich.ti[c(2,22264, 22266)]
 
 ## Population Test Examples (Plots)
 
-```{r, cache=TRUE}
+```{r}
   group = "public_outbound"
   pop.id = "country"
   pop.group = "mmgeo"
@@ -117,7 +127,7 @@ enrich.ti[c(2,22264, 22266)]
 
 ## Population Test Examples (Inference - Country)
 
-```{r, cache=TRUE}
+```{r}
   group = "public_outbound"
   pop.group = "mmgeo"
   end.date = "20140711"
@@ -135,7 +145,7 @@ enrich.ti[c(2,22264, 22266)]
 
 Comparing the population from day X to day X+1
 
-```{r, cache=TRUE}
+```{r}
 ref.pop = pop$public_outbound
 test.pop = pop2$public_outbound
 
