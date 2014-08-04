@@ -300,6 +300,7 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
   ## Also, issue with asname namesize
   rows = ifelse(length(plot.sources) > 3, 3, length(plot.sources))
   cols = ifelse(length(plot.sources) > 3, 1 + (length(plot.sources) %/% 3), 1)
+  par(mar = c(5, 20, 4, 2) + 0.1)
   par(mfrow=c(rows,cols))
 
   for (name in plot.sources) {
@@ -310,7 +311,7 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
     pop = pop[order(totalIPs, decreasing=FALSE)]
 
     barplot(height=pop$totalIPs, names.arg=pop[[pop.id]], main=title, col="red",
-            xlab=paste0("IP Ratio (",name,")"), horiz=TRUE, las=1, cex.lab=0.75, cex.names=0.75)
+            xlab=paste0("IP Ratio (",name,")"), horiz=TRUE, las=1, cex.lab=0.85, cex.names=0.85)
     grid()
   }
 }
