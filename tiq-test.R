@@ -70,6 +70,11 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
                                                ti.count[[name]][[str.date]]
           ti.churn.ratio[[name]][[str.date]] = tiq.helper.differenceCount(prev.split.ti[[name]], split.ti[[name]]) /
                                                ti.count[[name]][[str.date]]
+
+          ## This adjustment is necessary to compensate for data collection issues
+          ## we had on outbound feeds. You can't really change more then everything you got
+          if (ti.added.ratio[[name]][[str.date]] > 0.6) ti.added.ratio[[name]][[str.date]] = 0
+          if (ti.churn.ratio[[name]][[str.date]] > 1) ti.churn.ratio[[name]][[str.date]] = 0
         }
       }
     } else {
@@ -84,10 +89,9 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
 # tiq.test.plotNoveltyTest - returns nothing (but plots the graph)
 # Plots the results of the novelty test in a (mostly) clear graph for comparisons
 # - novelty: the output of the 'tiq.test.noveltyTest' function
-# - title: a title for your plot
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
-tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.sources=NULL) {
+tiq.test.plotNoveltyTest <- function(novelty, plot.sources=NULL) {
 
   test_that("tiq.test.plotNoveltyTest: parameters must have correct types", {
     expect_that(class(novelty), equals("list"))
@@ -101,18 +105,23 @@ tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.
     plot.sources = names(novelty$ti.added.ratio)
   }
 
+  ## This code needs some love
   rows = ifelse(length(plot.sources) > 3, 3, length(plot.sources))
   cols = ifelse(length(plot.sources) > 3, 1 + (length(plot.sources) %/% 3), 1)
-
+  if (length(plot.sources) == 4) {
+    rows = 2
+    cols = 2
+  }
   par(mfrow=c(rows,cols))
 
   for (name in plot.sources) {
     plot(novelty$ti.added.ratio[[name]], type="l", col="blue",
          ylim=c(min(-novelty$ti.churn.ratio[[name]]), max(novelty$ti.added.ratio[[name]])),
          xlab="Number of days", ylab="Ratio of Change per Day",
-         main=paste0("Source name: ", name, "\nAvg size: ", floor(mean(novelty$ti.count[[name]]))))
+         main=paste0("Source Name: ", name, "\nAvg. Size: ", floor(mean(novelty$ti.count[[name]]))))
     lines(-novelty$ti.churn.ratio[[name]], type="l", col="red")
     abline(h=0)
+    grid()
   }
 }
 
