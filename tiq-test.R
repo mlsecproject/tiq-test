@@ -70,6 +70,11 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
                                                ti.count[[name]][[str.date]]
           ti.churn.ratio[[name]][[str.date]] = tiq.helper.differenceCount(prev.split.ti[[name]], split.ti[[name]]) /
                                                ti.count[[name]][[str.date]]
+
+          ## This adjustment is necessary to compensate for data collection issues
+          ## we had on outbound feeds. You can't really change more then everything you got
+          if (ti.added.ratio[[name]][[str.date]] > 0.6) ti.added.ratio[[name]][[str.date]] = 0
+          if (ti.churn.ratio[[name]][[str.date]] > 1) ti.churn.ratio[[name]][[str.date]] = 0
         }
       }
     } else {
@@ -84,10 +89,9 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
 # tiq.test.plotNoveltyTest - returns nothing (but plots the graph)
 # Plots the results of the novelty test in a (mostly) clear graph for comparisons
 # - novelty: the output of the 'tiq.test.noveltyTest' function
-# - title: a title for your plot
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
-tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.sources=NULL) {
+tiq.test.plotNoveltyTest <- function(novelty, plot.sources=NULL) {
 
   test_that("tiq.test.plotNoveltyTest: parameters must have correct types", {
     expect_that(class(novelty), equals("list"))
@@ -101,18 +105,23 @@ tiq.test.plotNoveltyTest <- function(novelty, title = "Novelty Test Plot", plot.
     plot.sources = names(novelty$ti.added.ratio)
   }
 
+  ## This code needs some love
   rows = ifelse(length(plot.sources) > 3, 3, length(plot.sources))
   cols = ifelse(length(plot.sources) > 3, 1 + (length(plot.sources) %/% 3), 1)
-
+  if (length(plot.sources) == 4) {
+    rows = 2
+    cols = 2
+  }
   par(mfrow=c(rows,cols))
 
   for (name in plot.sources) {
     plot(novelty$ti.added.ratio[[name]], type="l", col="blue",
          ylim=c(min(-novelty$ti.churn.ratio[[name]]), max(novelty$ti.added.ratio[[name]])),
          xlab="Number of days", ylab="Ratio of Change per Day",
-         main=paste0("Source name: ", name, "\nAvg size: ", floor(mean(novelty$ti.count[[name]]))))
+         main=paste0("Source Name: ", name, "\nAvg. Size: ", floor(mean(novelty$ti.count[[name]]))))
     lines(-novelty$ti.churn.ratio[[name]], type="l", col="red")
     abline(h=0)
+    grid()
   }
 }
 
@@ -190,9 +199,9 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
     plot.data = plot.data[as.character(Var2) %chin% plot.sources]
   }
 
-  qplot(x=Var1, y=Var2, data=plot.data, fill=value, geom="tile",
-        xlab="Source", ylab="Source", main=title)
-
+  q = qplot(x=Var1, y=Var2, data=plot.data, fill=value, geom="tile",
+            xlab="Source (is contained)", ylab="Source (contains)", main=title)
+  return(q + theme(axis.text.x = element_text(angle = 45, hjust = 1)))
 }
 
 ################################################################################
@@ -291,6 +300,7 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
   ## Also, issue with asname namesize
   rows = ifelse(length(plot.sources) > 3, 3, length(plot.sources))
   cols = ifelse(length(plot.sources) > 3, 1 + (length(plot.sources) %/% 3), 1)
+  par(mar = c(5, 20, 4, 2) + 0.1)
   par(mfrow=c(rows,cols))
 
   for (name in plot.sources) {
@@ -301,7 +311,7 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
     pop = pop[order(totalIPs, decreasing=FALSE)]
 
     barplot(height=pop$totalIPs, names.arg=pop[[pop.id]], main=title, col="red",
-            xlab=paste0("IP Ratio (",name,")"), horiz=TRUE, las=1, cex.lab=0.75, cex.names=0.75)
+            xlab=paste0("IP Ratio (",name,")"), horiz=TRUE, las=1, cex.lab=0.85, cex.names=0.85)
     grid()
   }
 }
@@ -316,7 +326,8 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
 #
 # - ref.pop - a population dataset (not on a list) from the reference population
 # - test.pop - a population dataset (not on a list) to compare
-# - pop.id: the id of the population dataset. Does not support multiples ATM
+# - pop.id: the id of the population dataset. Supports multiple ids, indexes
+#           the output by the first one
 # - exact: When this is TRUE (the default), the function will execute an
 #          exact binomial test with the proportion on ref.pop. This should
 #          only be the case when ref.pop is the ACTUAL population (e.g. from
@@ -325,7 +336,6 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
 # - top: the X top members of the test.pop we want to test. Set to -1 for all.
 tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
                                          exact = TRUE, top=25) {
-  ## Parameter checking
 
   # Lets create copies of the data.tables, since we are messing with them
   ref.pop = copy(ref.pop)
@@ -334,7 +344,7 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
   # Reordering the test population so I can get the "top" entries for the test
   # Also, getting rid of any eventual NAs on pop.id (they happen)
   test.pop.total = sum(test.pop$totalIPs, na.rm=T)
-  test.pop = test.pop[!is.na(test.pop[[pop.id]])]
+  test.pop = test.pop[!is.na(test.pop[[pop.id[1]]])]
   test.pop = test.pop[order(totalIPs, decreasing=T)]
   if (top > 0) {
     test.pop = test.pop[1:top]
@@ -361,13 +371,13 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
       }
       return(htest)
     })
-    names(retval) <- test.pop[[pop.id]]
+    names(retval) <- test.pop[[pop.id[1]]]
   } else { # Chi-squared proportion test
     sucesses = mapply(c, test.pop$totalIPs, test.pop$refIPs, SIMPLIFY=F,
                       USE.NAMES=F)
     totals = list(c(test.pop.total, ref.pop.total))
     retval = suppressWarnings(mapply(prop.test, sucesses, totals, SIMPLIFY=F, USE.NAMES=F))
-    names(retval) <- test.pop[[pop.id]]
+    names(retval) <- test.pop[[pop.id[1]]]
   }
 
   id = names(retval)
@@ -376,7 +386,7 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
   p.value = sapply(retval, function(htest) return(htest$p.value), USE.NAMES=F)
 
   dt.retval = data.table(id, conf.int.start, conf.int.end, p.value)
-  setnames(dt.retval, "id", pop.id)
+  setnames(dt.retval, "id", pop.id[1])
 
   return(dt.retval)
 }
