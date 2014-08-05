@@ -326,7 +326,8 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
 #
 # - ref.pop - a population dataset (not on a list) from the reference population
 # - test.pop - a population dataset (not on a list) to compare
-# - pop.id: the id of the population dataset. Does not support multiples ATM
+# - pop.id: the id of the population dataset. Supports multiple ids, indexes
+#           the output by the first one
 # - exact: When this is TRUE (the default), the function will execute an
 #          exact binomial test with the proportion on ref.pop. This should
 #          only be the case when ref.pop is the ACTUAL population (e.g. from
@@ -335,7 +336,6 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
 # - top: the X top members of the test.pop we want to test. Set to -1 for all.
 tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
                                          exact = TRUE, top=25) {
-  ## Parameter checking
 
   # Lets create copies of the data.tables, since we are messing with them
   ref.pop = copy(ref.pop)
@@ -344,7 +344,7 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
   # Reordering the test population so I can get the "top" entries for the test
   # Also, getting rid of any eventual NAs on pop.id (they happen)
   test.pop.total = sum(test.pop$totalIPs, na.rm=T)
-  test.pop = test.pop[!is.na(test.pop[[pop.id]])]
+  test.pop = test.pop[!is.na(test.pop[[pop.id[1]]])]
   test.pop = test.pop[order(totalIPs, decreasing=T)]
   if (top > 0) {
     test.pop = test.pop[1:top]
@@ -371,13 +371,13 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
       }
       return(htest)
     })
-    names(retval) <- test.pop[[pop.id]]
+    names(retval) <- test.pop[[pop.id[1]]]
   } else { # Chi-squared proportion test
     sucesses = mapply(c, test.pop$totalIPs, test.pop$refIPs, SIMPLIFY=F,
                       USE.NAMES=F)
     totals = list(c(test.pop.total, ref.pop.total))
     retval = suppressWarnings(mapply(prop.test, sucesses, totals, SIMPLIFY=F, USE.NAMES=F))
-    names(retval) <- test.pop[[pop.id]]
+    names(retval) <- test.pop[[pop.id[1]]]
   }
 
   id = names(retval)
@@ -386,7 +386,7 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
   p.value = sapply(retval, function(htest) return(htest$p.value), USE.NAMES=F)
 
   dt.retval = data.table(id, conf.int.start, conf.int.end, p.value)
-  setnames(dt.retval, "id", pop.id)
+  setnames(dt.retval, "id", pop.id[1])
 
   return(dt.retval)
 }
