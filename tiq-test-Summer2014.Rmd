@@ -141,100 +141,107 @@ granular.
 
 ```{r, fig.height=10, fig.width=10, fig.align='center'}
 
-  outbound.pop = tiq.test.extractPopulationFromTI("public_outbound", c("asnumber", "asname"), 
+  outbound.pop = tiq.test.extractPopulationFromTI("public_outbound", 
+                                                  c("asnumber", "asname"), 
                                                   date = "20140711",
                                                   select.sources=NULL, split.ti=F)
-  inbound.pop = tiq.test.extractPopulationFromTI("public_inbound", c("asnumber", "asname"), 
+  inbound.pop = tiq.test.extractPopulationFromTI("public_inbound", 
+                                                 c("asnumber", "asname"), 
                                                  date = "20140711",
                                                  select.sources=NULL, split.ti=F)
 
   complete.pop = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
   tiq.test.plotPopulationBars(c(inbound.pop, outbound.pop, complete.pop), "asname")
-
 ```
 
 
-## Population Test Examples (Inference - Country)
+## Population Test Inference - Country data
+
+We can use some inference tools to get a better understanding if the volume of
+maliciousness we are seeing makes sense in relation to the population we consider
+to be our reference population.
 
 ```{r}
-  group = "public_outbound"
-  pop.group = "mmgeo"
-  end.date = "20140711"
-  end.date2 = "20140712"
+outbound.pop = tiq.test.extractPopulationFromTI("public_outbound", "country", 
+                                                date = "20140711",
+                                                select.sources=NULL,
+                                                split.ti=FALSE)
+complete.pop = tiq.data.loadPopulation("mmgeo", "country")
+tests = tiq.test.populationInference(complete.pop$mmgeo, 
+                                     outbound.pop$public_outbound, "country",
+                                     exact = TRUE, top=10)
 
-  pop = tiq.test.extractPopulationFromTI(group, "country", end.date,
-                                         select.sources=NULL,
-                                         split.ti=FALSE)
+# Whose proportion is bigger than it should be?
+tests[p.value < 0.05/10 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
 
-  pop2 = tiq.test.extractPopulationFromTI(group, "country", end.date2,
-                                       select.sources=NULL,
-                                       split.ti=FALSE)
-  pop.mm = tiq.data.loadPopulation("mmgeo", "country")
+# Whose is smaller?
+tests[p.value < 0.05/10 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+
+# And whose is the same? ¯\_(ツ)_/¯
+tests[p.value > 0.05/10]
 ```
 
-Comparing the population from day X to day X+1
+This tool also enables us to do trend comparison between the same TI groupings 
+from different days or between different groupings. A suggested usage is comparing
+the threat intelligence feeds you have against the population of confirmed attacks
+or firewall blocks you have in your environment.
 
 ```{r}
-ref.pop = pop$public_outbound
-test.pop = pop2$public_outbound
+outbound.pop2 = tiq.test.extractPopulationFromTI("public_outbound", "country", 
+                                                 date = "20140712",
+                                                 select.sources=NULL,
+                                                 split.ti=FALSE)
+tests = tiq.test.populationInference(outbound.pop$public_outbound, 
+                                     outbound.pop2$public_outbound, "country",
+                                     exact = F, top=10)
 
-tests = tiq.test.populationInference(ref.pop, test.pop, "country",
-                                     exact = F, top=-1)
+# Whose proportion is bigger than it should be?
+tests[p.value < 0.05/10 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
 
-tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
-tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
-tests[p.value > 0.05]
+# Whose is smaller?
+tests[p.value < 0.05/10 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+
+# And whose is the same? ¯\_(ツ)_/¯
+tests[p.value > 0.05/10]
 ```
 
-Comparing the population from day X to the "true" population
+## Population Test Inference - ASN data
 
-```{r, cache=TRUE}
-ref.pop = pop.mm$mmgeo
-test.pop = pop2$public_outbound
+We can do the same population-like tests for ASN data. Let's investigate the
+prevalence of Google IP addresses on 
 
-tests = tiq.test.populationInference(ref.pop, test.pop, "country",
-                                     exact = F, top=-1)
+```{r}
+outbound.pop = tiq.test.extractPopulationFromTI("public_outbound", 
+                                                c("asnumber", "asname"), 
+                                                date="20140711",
+                                                select.sources=NULL,
+                                                split.ti=FALSE)
+complete.pop = tiq.data.loadPopulation("mmasn", c("asnumber", "asname"))
+tests = tiq.test.populationInference(complete.pop$mmasn,
+                                     outbound.pop$public_outbound, 
+                                     c("asname", "asnumber"),
+                                     exact = TRUE, top=10)
 
-tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
-tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
-tests[p.value > 0.05]
+# Whose proportion is bigger than it should be?
+tests[p.value < 0.05/10 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
+
+# Whose is smaller?
+tests[p.value < 0.05/10 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
+
+# And whose is the same? ¯\_(ツ)_/¯
+tests[p.value > 0.05/10]
 ```
 
-## Population Test Examples (Inference - ASN)
+This huge prevalence of Google AS IPs should be investigated further. Some of it
+could be from parking at `8.8.8.8` and `1.1.1.1` but it seems to be too much
 
-```{r, cache=TRUE}
-  group = "public_outbound"
-  pop.id = "asname"
-  pop.group = "mmasn"
-  end.date = "20140711"
-  end.date2 = "20140712"
-
-  pop = tiq.test.extractPopulationFromTI(group, pop.id, end.date,
-                                         select.sources=NULL,
-                                         split.ti=FALSE)
-
-  pop2 = tiq.test.extractPopulationFromTI(group, pop.id, end.date2,
-                                          select.sources=NULL,
-                                          split.ti=FALSE)
-  pop.mm = tiq.data.loadPopulation(pop.group, pop.id)
-
-    ref.pop = pop.mm$mmasn
-    test.pop = pop$public_outbound
-
-    tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
-                                         exact = TRUE, top=-1)
-
-  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
-  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
-  tests[p.value > 0.05]
-
-  ref.pop = pop$public_outbound
-  test.pop = pop2$public_outbound
-
-  tests = tiq.test.populationInference(ref.pop, test.pop, pop.id,
-                                       exact = F, top=-1)
-
-  tests[p.value < 0.05 & conf.int.end > 0][order(conf.int.end, decreasing=T)]
-  tests[p.value < 0.05 & conf.int.start < 0][order(conf.int.start, decreasing=F)]
-  tests[p.value > 0.05]
+```{r, message=FALSE}
+outbound.ti = tiq.data.loadTI("enriched", "public_outbound", "20140711")
+outbound.ti[asname %like% "Google",  list(entity, type, source, asname, host)]
+outbound.ti[asname %like% "Google" & entity != "8.8.8.8" & entity != "1.1.1.1",
+            list(entity, type, source, asname, host)]
 ```
+
+I guess it is fair to say that it would be a good idea to cleanup these feeds. :)
+
+That's all for now, folks! Feel free to suggest new tests and experiments!
