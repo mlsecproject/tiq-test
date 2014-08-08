@@ -11,5 +11,7 @@
 # Ignoring our "log" directory
 log/
 
-## MArckdown things
+## Marckdown things
 README.html
+tiq-test-Summer2014_cache/
+tiq-test-Summer2014_files/
