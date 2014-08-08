@@ -201,7 +201,8 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
 
   q = qplot(x=Var1, y=Var2, data=plot.data, fill=value, geom="tile",
             xlab="Source (is contained)", ylab="Source (contains)", main=title)
-  return(q + theme(axis.text.x = element_text(angle = 45, hjust = 1)))
+  return(q + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=12))
+         + theme(axis.text.y = element_text(hjust = 1, size=12)))
 }
 
 ################################################################################
