@@ -154,7 +154,6 @@ granular.
   tiq.test.plotPopulationBars(c(inbound.pop, outbound.pop, complete.pop), "asname")
 ```
 
-
 ## Population Test Inference - Country data
 
 We can use some inference tools to get a better understanding if the volume of
