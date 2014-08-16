@@ -2,11 +2,13 @@ tiq-test
 ========
 Threat Intelligence Quotient Test
 
-Code and data repository for the statistical analysis of TI indicator feeds
+Dataviz and Statistical Analysis of Threat Intelligence Indicator feeds
 
 As seen in:
 * BSides LV 2014 - "Measuring the IQ of your threat intelligence feeds"
 * DEF CON 22 - "Measuring the IQ of your threat intelligence feeds"
+
+The data repository and R Markdown source for these talks can be found at https://github.com/mlsecproject/tiq-test-Summer2014
 
 Check out the usage examples of the talks in http://rpubs.com/alexcpsec/tiq-test-Summer2014
 
