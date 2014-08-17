@@ -10,7 +10,7 @@ As seen in:
 
 The data repository and R Markdown source for these talks can be found at https://github.com/mlsecproject/tiq-test-Summer2014
 
-Check out the usage examples of the talks in http://rpubs.com/alexcpsec/tiq-test-Summer2014
+Check out the usage examples of the talks in http://rpubs.com/alexcpsec/tiq-test-Summer2014-2
 
 Copyright Info
 --------------
@@ -46,6 +46,6 @@ have some packages installed. The required packages are:
 
 Running this on your R console should take care of that:
 ```
-install.packages(c("futile.logger", "data.table", "testthat", "reshape2", "ggplot2"), 
+install.packages(c("futile.logger", "data.table", "testthat", "reshape2", "ggplot2"),
                  repos="http://cran.us.r-project.org")
 ```
