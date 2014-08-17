@@ -10,8 +10,6 @@ As seen in:
 
 The data repository and R Markdown source for these talks can be found at https://github.com/mlsecproject/tiq-test-Summer2014
 
-Check out the usage examples of the talks in http://rpubs.com/alexcpsec/tiq-test-Summer2014-2
-
 Copyright Info
 --------------
 Copyright 2014 MLSec Project
@@ -49,3 +47,26 @@ Running this on your R console should take care of that:
 install.packages(c("futile.logger", "data.table", "testthat", "reshape2", "ggplot2"),
                  repos="http://cran.us.r-project.org")
 ```
+
+How to use these tools
+----------------------
+
+This is not an R package (yet) so it is necessary for you to set the working directory
+to the directory where you clone this repository in order for the functions to work.
+
+```
+## Some limitations from not being an R package: Setting the Working directory
+tiqtest.dir = "../tiq-test"
+current.dir = setwd(tiqtest.dir)
+source("tiq-test.R")
+```
+
+There is also the requirement to set the data directory so the data functions
+know where to look.
+
+```
+## Setting the root data path to where it should be in this repo
+.tiq.data.setRootPath(file.path(current.dir, "data"))
+```
+
+Check out usage examples for the tests here http://rpubs.com/alexcpsec/tiq-test-Summer2014-2
