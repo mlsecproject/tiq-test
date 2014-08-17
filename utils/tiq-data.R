@@ -15,6 +15,11 @@ library(testthat)
 # "data" path. Change here if you want it to point to a different place.
 .tiq.data.rootPath = file.path(getwd(), "data")
 
+.tiq.data.setRootPath <- function(newRootPath) {
+  flog.info("tiq.data.setRootPath: Setting path to '%s'", newRootPath)
+  .tiq.data.rootPath <<- newRootPath
+}
+
 # tiq.data.getDirPath - returns 'character'
 # Builds the path for the intel analysts sources and returns it.
 #  - category: currently one of "raw", "enriched", "population"
