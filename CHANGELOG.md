@@ -1,7 +1,7 @@
 CHANGE LOG
 ==========
 
-#### Unreleased Version
+#### 0.1.2 Bouncing Armadillo
 * Separating the data files and R Markdowns in their own repos ([issue 14](https://github.com/mlsecproject/tiq-test/issues/14))
 
 #### 0.1.1 Axiomatic Armadillo
