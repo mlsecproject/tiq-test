@@ -42,10 +42,12 @@ have some packages installed. The required packages are:
 * `testthat`
 * `reshape2`
 * `ggplot2`
+* `gridExtra`
 
 Running this on your R console should take care of that:
 ```
-install.packages(c("futile.logger", "data.table", "testthat", "reshape2", "ggplot2"),
+install.packages(c("futile.logger", "data.table", "testthat", 
+                   "reshape2", "ggplot2", "gridExtra"),
                  repos="http://cran.us.r-project.org")
 ```
 
