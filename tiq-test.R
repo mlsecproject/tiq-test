@@ -304,13 +304,6 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
     plot.sources = names(pop.data)
   }
 
-  ## ggplot2 facets?
-  ## Also, issue with asname namesize
-  rows = ifelse(length(plot.sources) > 3, 3, length(plot.sources))
-  cols = ifelse(length(plot.sources) > 3, 1 + (length(plot.sources) %/% 3), 1)
-  par(mar = c(5, 30, 4, 2) + 0.1)
-  par(mfrow=c(rows,cols))
-
   # Preparing the data and calculating the max proportion we have
   max.pop = 0.0
   for (name in plot.sources) {
@@ -320,19 +313,28 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
   }
 
   # Creating the Plots
+  plots = list()
   for (name in plot.sources) {
-    pop = pop.data[[name]]
+    pop = copy(pop.data[[name]])
     pop = pop[order(totalIPs, decreasing=TRUE)]
     if (table.size > 0) pop = pop[1:table.size]
     pop = pop[order(totalIPs, decreasing=FALSE)]
+    setnames(pop, pop.id, "pop.id")
 
-    barplot(height=pop$totalIPs, names.arg=sprintf("%s (%.2f)",pop[[pop.id]], pop$totalIPs),
-            main=title, col="red", xlab=paste0("IP Ratio (",name,")"),
-            xlim=c(0.0, max.pop),
-            horiz=TRUE, las=1, cex.lab=1.2,
-            cex.names=1.2)
-    grid()
+    plots[[name]] = ggplot(pop, aes(x=reorder(pop.id,totalIPs), y=totalIPs)) +
+                      geom_bar(stat="identity", fill="red", colour="black", width=0.65) +
+                      ylim(0.0, max.pop) +
+                      coord_flip() +
+                      theme(axis.text.x = element_text(size=12, colour="black")) +
+                      theme(axis.text.y = element_text(size=12, colour="black")) +
+                      ylab(paste0("IP Ratio")) +
+                      scale_x_discrete(name="", labels=sprintf("%s (%.2f)",pop$pop.id, pop$totalIPs)) +
+                      ggtitle(paste0("Population Summary by ", pop.id, " (",name,")"))
   }
+
+  ## Let's try to organize them in on top of each other
+  plots = c(plots, list(ncol=1))
+  do.call(grid.arrange, plots)
 }
 
 # tiq.test.populationInference - returns a data.table

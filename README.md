@@ -1,10 +1,8 @@
-tiq-test
-========
-Threat Intelligence Quotient Test
-
+tiq-test - Threat Intelligence Quotient Test
+============================================
 Dataviz and Statistical Analysis of Threat Intelligence Indicator feeds
 
-As seen in:
+As seen on:
 * BSides LV 2014 - "Measuring the IQ of your threat intelligence feeds"
 * DEF CON 22 - "Measuring the IQ of your threat intelligence feeds"
 * OpenDNS S4 IRespond - "Measuring the IQ of your threat intelligence feeds"
