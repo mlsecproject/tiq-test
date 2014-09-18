@@ -11,6 +11,7 @@ source("utils/tiq-helper.R")
 
 library(reshape2)
 library(ggplot2)
+library(gridExtra)
 
 ################################################################################
 ## NOVELTY Test
@@ -105,24 +106,30 @@ tiq.test.plotNoveltyTest <- function(novelty, plot.sources=NULL) {
     plot.sources = names(novelty$ti.added.ratio)
   }
 
-  ## This code needs some love
-  rows = ifelse(length(plot.sources) > 3, 3, length(plot.sources))
-  cols = ifelse(length(plot.sources) > 3, 1 + (length(plot.sources) %/% 3), 1)
-  if (length(plot.sources) == 4) {
-    rows = 2
-    cols = 2
-  }
-  par(mfrow=c(rows,cols))
-
+  # Calculating the plots
+  plots = list()
   for (name in plot.sources) {
-    plot(novelty$ti.added.ratio[[name]], type="l", col="blue",
-         ylim=c(min(-novelty$ti.churn.ratio[[name]]), max(novelty$ti.added.ratio[[name]])),
-         xlab="Number of days", ylab="Ratio of Change per Day",
-         main=paste0("Source Name: ", name, "\nAvg. Size: ", floor(mean(novelty$ti.count[[name]]))))
-    lines(-novelty$ti.churn.ratio[[name]], type="l", col="red")
-    abline(h=0)
-    grid()
+    added.ratio = novelty$ti.added.ratio[[name]]
+    churn.ratio = novelty$ti.churn.ratio[[name]]
+    df.ratio = rbind(data.frame(group="Added", date=names(added.ratio), ratio=added.ratio),
+                     data.frame(group="Churn", date=names(churn.ratio), ratio=-churn.ratio))
+
+    plots[[name]] = ggplot(df.ratio, aes(x=date, y=ratio, fill=group)) +
+                      geom_bar(stat="identity", position="identity") +
+                      theme(axis.text.x = element_text(angle = 90, hjust = 1, size=7)) +
+                      theme(axis.text.y = element_text(hjust = 1, size=12)) +
+                      scale_fill_discrete(name="Variation") +
+                      ylab("Change Ratio per Day") +
+                      xlab("Date") +
+                      ggtitle(paste0("Source Name: ", name, "\nAvg. Size: ",
+                                     floor(mean(novelty$ti.count[[name]]))))
   }
+
+  ## Let's try to organize them in a square-ish format
+  rows = ceiling(sqrt(length(plots)))
+  plots = c(plots, list(nrow=rows))
+
+  do.call(grid.arrange, plots)
 }
 
 ################################################################################
