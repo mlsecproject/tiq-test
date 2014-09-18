@@ -1,6 +1,9 @@
 CHANGE LOG
 ==========
 
+#### 0.1.3 Charming Armadillo
+* Replacing the existing graphs with pretty ggplot2 versions ([issue 7](https://github.com/mlsecproject/tiq-test/issues/7))
+
 #### 0.1.2 Bouncing Armadillo
 * Separating the data files and R Markdowns in their own repos ([issue 14](https://github.com/mlsecproject/tiq-test/issues/14))
 
