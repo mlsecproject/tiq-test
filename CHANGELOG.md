@@ -1,6 +1,9 @@
 CHANGE LOG
 ==========
 
+#### Unreleased Version
+* Implementation of Aging Test ([issue 12](https://github.com/mlsecproject/tiq-test/issues/12))
+
 #### 0.1.3 Charming Armadillo
 * Replacing the existing graphs with pretty ggplot2 versions ([issue 7](https://github.com/mlsecproject/tiq-test/issues/7))
 
