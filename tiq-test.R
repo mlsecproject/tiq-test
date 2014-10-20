@@ -412,7 +412,25 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
   return(dt.retval)
 }
 
-####
+################################################################################
+## AGING Tests
+################################################################################
+# tiq.test.agingTest - returns a "tiqtest.agingtest" object
+# Calculates the number of times an indicator is repeated on a feed throughout
+# the days from 'start.date' to 'end.date' Use 'group' and 'type' to select the
+# dataset. 'split.ti' and 'select.sources' control the output
+# - group: the name of the dataset group. Must exist on the 'type' category
+# - start.date: the beginning date for the test
+# - end.date: the end date for the test
+# - type: The test can take into consideration the FQDN sources as
+#          the original entities ("raw"), or as the extracted IPv4 fields from
+#          the enriched entities ("enriched")
+# - split.ti: if TRUE, creates a popoulation for each source and returns a list
+#             with the sources as IDs. Otherwise, returns a list with a single
+#             element with the group as the ID.
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them. Only
+#                   applicable if split.ti = TRUE.
 tiq.test.agingTest <- function(group, start.date, end.date, type = "raw",
                                split.ti = TRUE, select.sources=NULL) {
   # Parameter checking
@@ -481,6 +499,13 @@ tiq.test.agingTest <- function(group, start.date, end.date, type = "raw",
   return(retval)
 }
 
+# tiq.test.plotAgingTest
+# Plots an Aging Test histogram and density plot
+# - aging.data: the aging data object to be plotted. More specifically the output of
+#               tiq.test.agingTest()
+# - title: a title for your plot. NULL leaves it blank
+# - plot.sources: a chararacter vector of the sources on the novelty test you want
+#                 to be a part of the plot, or NULL for all of them
 tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL) {
   # Parameter checking
   test_that("tiq.test.plotAgingTest: parameters must have correct types", {
@@ -510,7 +535,7 @@ tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL) {
       xlim(0, total.days + 1) +
       theme(axis.text.x = element_text(size=12, colour="black")) +
       theme(axis.text.y = element_text(size=12, colour="black")) +
-      ylab("Percentage of Indicators") +
+      ylab("Density") +
       xlab("Indicator Age") +
       ggtitle(paste0("Source: '", name, "'\nSampled Time: ", total.days, " days"))
   }
@@ -520,20 +545,3 @@ tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL) {
   plots = c(plots, list(ncol=rows, main=title))
   do.call(grid.arrange, plots)
 }
-
-
-
-
-group = "public_outbound"
-start.date = "20140615"
-end.date = "20140715"
-type="raw"
-split.ti=T
-select.sources=NULL
-
-if (F) {
-  flog.threshold(TRACE)
-  aa = tiq.test.agingTest(group, start.date, end.date)
-  tiq.test.plotAgingTest(aa)
-}
-
