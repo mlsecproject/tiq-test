@@ -411,3 +411,137 @@ tiq.test.populationInference <- function(ref.pop, test.pop, pop.id,
 
   return(dt.retval)
 }
+
+################################################################################
+## AGING Tests
+################################################################################
+# tiq.test.agingTest - returns a "tiqtest.agingtest" object
+# Calculates the number of times an indicator is repeated on a feed throughout
+# the days from 'start.date' to 'end.date' Use 'group' and 'type' to select the
+# dataset. 'split.ti' and 'select.sources' control the output
+# - group: the name of the dataset group. Must exist on the 'type' category
+# - start.date: the beginning date for the test
+# - end.date: the end date for the test
+# - type: The test can take into consideration the FQDN sources as
+#          the original entities ("raw"), or as the extracted IPv4 fields from
+#          the enriched entities ("enriched")
+# - split.ti: if TRUE, creates a popoulation for each source and returns a list
+#             with the sources as IDs. Otherwise, returns a list with a single
+#             element with the group as the ID.
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them. Only
+#                   applicable if split.ti = TRUE.
+tiq.test.agingTest <- function(group, start.date, end.date, type = "raw",
+                               split.ti = TRUE, select.sources=NULL) {
+  # Parameter checking
+  test_that("tiq.test.agingTest: parameters must have correct types", {
+    expect_that(class(group), equals("character"))
+    expect_match(start.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(end.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_is(type, "character")
+    expect_is(split.ti, "logical")
+  })
+
+  # Calculating the date range for the test form start and end dates
+  date.range = .tiq.data.getDateSequence(start.date, end.date)
+
+  # Initialize the reply we are going to provide
+  list.dt.counts = list()
+
+  for (date in date.range) {
+    flog.debug("tiq.test.agingTest: processing '%s'/'%s' info from '%s'",
+                  type, group, ifelse(is.null(date), "NULL", date))
+    ti.dt = tiq.data.loadTI("enriched", group, date)
+    if (is.null(ti.dt)) next
+
+    ## Splitting and selecting (This needs to be a refactor into ti.data)
+    ## Makes no sense to be repeating this code
+    if (split.ti) {
+      ti.data = split(ti.dt, ti.dt$source)
+    } else {
+      ti.data = list(ti.dt)
+      names(ti.data) <- group
+    }
+    if (!is.null(select.sources)) {
+      select.sources = intersect(select.sources, names(ti.data))
+      ti.data = ti.data[select.sources]
+    }
+
+    ## Summarizing the data from each subgroup, and creating a data.table that
+    ## has a 1 marked on the date I found them
+    generateDateInfo <- function(dt_it, date) {
+      dt_ret = data.table(entity = unique(dt_it$entity), date = 1)
+      setnames(dt_ret, "date", date)
+    }
+    dateinfo.list = lapply(ti.data, generateDateInfo, date=date)
+    dateinfo.names = names(dateinfo.list)
+
+    ## Now, I need to merge this data with the list I already have been creating
+    for(name in dateinfo.names) {
+      dt_subgroup = list.dt.counts[[name]]
+      if (is.null(dt_subgroup)) {
+        list.dt.counts[[name]] = dateinfo.list[[name]]
+      } else {
+        list.dt.counts[[name]] = merge(dt_subgroup, dateinfo.list[[name]], by="entity", all=T)
+      }
+    }
+  }
+
+  ## Now, we summarize all the data and return the counts
+  summarizeAgingInfo <- function(dt_aging) {
+    date.names = intersect(date.range, names(dt_aging))
+    return(rowSums(dt_aging[, date.names, with=F], na.rm=T))
+  }
+  retval = lapply(list.dt.counts, summarizeAgingInfo)
+  retval[["_agingtest.days"]] = length(date.range)
+  class(retval) <- "tiqtest.agingtest"
+
+  return(retval)
+}
+
+# tiq.test.plotAgingTest
+# Plots an Aging Test histogram and density plot
+# - aging.data: the aging data object to be plotted. More specifically the output of
+#               tiq.test.agingTest()
+# - title: a title for your plot. NULL leaves it blank
+# - plot.sources: a chararacter vector of the sources on the novelty test you want
+#                 to be a part of the plot, or NULL for all of them
+tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL) {
+  # Parameter checking
+  test_that("tiq.test.plotAgingTest: parameters must have correct types", {
+    expect_is(aging.data, "tiqtest.agingtest")
+  })
+
+  # Important for graph alignment
+  total.days = aging.data[["_agingtest.days"]]
+  aging.data[["_agingtest.days"]] = NULL
+
+  # Selecting the sources to plot
+  if (is.null(plot.sources)) {
+    plot.sources = names(aging.data)
+  }
+
+  # Creating the Plots
+  plots = list()
+  for (name in plot.sources) {
+    dt_aging = data.table(age=aging.data[[name]])
+
+    plots[[name]] =
+      ggplot(dt_aging, aes(x=age)) +
+      geom_histogram(aes(y=..density..),  # Histogram with density instead of count on y-axis
+                     binwidth=1,
+                     colour="black", fill="white") +
+      geom_density(alpha=.2, fill="#FF6666") +
+      xlim(0, total.days + 1) +
+      theme(axis.text.x = element_text(size=12, colour="black")) +
+      theme(axis.text.y = element_text(size=12, colour="black")) +
+      ylab("Density") +
+      xlab("Indicator Age") +
+      ggtitle(paste0("Source: '", name, "'\nSampled Time: ", total.days, " days"))
+  }
+
+  ## Let's try to organize them in a square-ish format
+  rows = ceiling(sqrt(length(plots)))
+  plots = c(plots, list(ncol=rows, main=title))
+  do.call(grid.arrange, plots)
+}
