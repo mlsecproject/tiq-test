@@ -475,18 +475,21 @@ tiq.test.agingTest <- function(group, start.date, end.date, type = "raw",
     return(rowSums(dt_aging[, date.names, with=F], na.rm=T))
   }
   retval = lapply(list.dt.counts, summarizeAgingInfo)
-  retval$_agingtest.days = length(date.range)
+  retval[["_agingtest.days"]] = length(date.range)
   class(retval) <- "tiqtest.agingtest"
 
   return(retval)
 }
 
-tiq.test.plotAgingTest <- function(aging.data, title="", plot.sources=NULL) {
+tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL) {
   # Parameter checking
   test_that("tiq.test.plotAgingTest: parameters must have correct types", {
     expect_is(aging.data, "tiqtest.agingtest")
-    expect_is(title, "character")
   })
+
+  # Important for graph alignment
+  total.days = aging.data[["_agingtest.days"]]
+  aging.data[["_agingtest.days"]] = NULL
 
   # Selecting the sources to plot
   if (is.null(plot.sources)) {
@@ -504,14 +507,14 @@ tiq.test.plotAgingTest <- function(aging.data, title="", plot.sources=NULL) {
                      binwidth=1,
                      colour="black", fill="white") +
       geom_density(alpha=.2, fill="#FF6666") +
+      xlim(0, total.days + 1) +
       theme(axis.text.x = element_text(size=12, colour="black")) +
       theme(axis.text.y = element_text(size=12, colour="black")) +
       ylab("Percentage of Indicators") +
       xlab("Indicator Age") +
-      ggtitle(paste0("Aging Test on '", name, "'"))
+      ggtitle(paste0("Source: '", name, "'\nSampled Time: ", total.days, " days"))
   }
 
-  ## Let's try to organize them in on top of each other
   ## Let's try to organize them in a square-ish format
   rows = ceiling(sqrt(length(plots)))
   plots = c(plots, list(ncol=rows, main=title))
@@ -531,5 +534,6 @@ select.sources=NULL
 if (F) {
   flog.threshold(TRACE)
   aa = tiq.test.agingTest(group, start.date, end.date)
+  tiq.test.plotAgingTest(aa)
 }
 
