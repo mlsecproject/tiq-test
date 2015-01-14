@@ -1,17 +1,7 @@
-# History files
-.Rhistory
-
-# Example code in package build process
-*-Ex.R
-
-# R data files from past sessions
-.Rdata
 .Rproj.user
-
-# Ignoring our "log" directory
-log/
-
-## Marckdown things
-README.html
-tiq-test-Summer2014_cache/
-tiq-test-Summer2014_files/
+.Rhistory
+.RData
+.Rproj
+src/*.o
+src/*.so
+src/*.dll

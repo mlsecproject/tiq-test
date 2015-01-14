@@ -1,72 +1,98 @@
-tiq-test
-========
-Threat Intelligence Quotient Test
+tiq is Functions for the Threat Intelligence IQ Tests. These should be used for the different evaluations to be run on the TI feeds.
 
-Dataviz and Statistical Analysis of Threat Intelligence Indicator feeds
+The following functions are implemented:
 
-As seen in:
-* BSides LV 2014 - "Measuring the IQ of your threat intelligence feeds"
-* DEF CON 22 - "Measuring the IQ of your threat intelligence feeds"
+-   `agingTest` - Calculates the number of times an indicator is repeated on a feed throughout
+-   `extractPopulationFromTI` - Returns multiple population data.tables calculated using the sources on the "enriched" TI dataset on 'date'.
+-   `getAvailableDates` - Queries the data repository for the specific 'category' and 'group' of TI or population information and return the dates we have available for that group.
+-   `getDirPath` - Builds the path for the intel analysts sources and returns it.
+-   `loadData` - Lower level function helper for loadTI and loadPopulation. Should not be used directly
+-   `loadPopulation` - Fetches the data contained in the Population dataset contained in 'pop.group', with the 'pop.id' as the key on the 'date' specified.
+-   `loadTI` - Fetches the data contained in the Threat Intelligence dataset contained in 'category' and 'group' on the 'date' specified.
+-   `noveltyTest` - The novelty test is about how many indicators are being added and removed on each passing day on a specific TI feed.
+-   `overlapTest` - The overlap test is about how many indicators are present and repeted on multiple TI feeds.
+-   `plotAgingTest` - Plots an Aging Test histogram and density plot
+-   `plotNoveltyTest` - Plots the results of the novelty test in a (mostly) clear graph for comparisons
+-   `plotOverlapTest` - Plots the results of the overlap test in a (mostly) clear heatmap for comparisons
+-   `plotPopulationBars` - Plots a population bar chart for simple comparisons
+-   `populationInference` - Runs an inference-based comparison between the reference population ('ref.pop') and the test population ('test.pop'), based on the 'pop.id' key.
+-   `setRootPath` - Set data path
 
-The data repository and R Markdown source for these talks can be found at https://github.com/mlsecproject/tiq-test-Summer2014
+### News
 
-Copyright Info
---------------
-Copyright 2014 MLSec Project
+-   Version 1.0 released
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+### Installation
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-Licensed under GPLv3 - https://github.com/mlsecproject/tiq-test/blob/master/LICENSE
-
-Requirements
-------------
-In order to run these scripts, you will need to install R on your computer. We also suggest using RStudio as an IDE.
-
-* Downloading and Installing R - http://cran.us.r-project.org/
-* Downloading and Installing RStudio - http://www.rstudio.com/products/rstudio/download/
-
-Once you have your installation up and running, you will need to make sure you
-have some packages installed. The required packages are:
-
-* `futile.logger`
-* `data.table`
-* `testthat`
-* `reshape2`
-* `ggplot2`
-
-Running this on your R console should take care of that:
-```
-install.packages(c("futile.logger", "data.table", "testthat", "reshape2", "ggplot2"),
-                 repos="http://cran.us.r-project.org")
+``` r
+devtools::install_github("mlsecproject/tiq")
 ```
 
-How to use these tools
-----------------------
+### Usage
 
-This is not an R package (yet) so it is necessary for you to set the working directory
-to the directory where you clone this repository in order for the functions to work.
+``` r
+library(tiq)
 
-```
-## Some limitations from not being an R package: Setting the Working directory
-tiqtest.dir = "../tiq-test"
+# current verison
+packageVersion("tiq")
+
+tiqtest.dir = "/SOME/DATA/DIR/tiq-test-Summer2014"
 current.dir = setwd(tiqtest.dir)
-source("tiq-test.R")
+
+tiq.data.setRootPath(file.path(current.dir, "data"))
+
+tiq.data.getAvailableDates("raw", "public_outbound")
+
+outbound.ti = tiq.data.loadTI("raw", "public_outbound", "20140701")
+
+outbound.ti[, list(entity, type, direction, source, date)]
+inbound.novelty = tiq.test.noveltyTest("public_inbound", "20140615", "20140630",
+                                       select.sources=c("alienvault", "blocklistde",
+                                                        "dshield", "charleshaley"))
+
+tiq.test.plotNoveltyTest(inbound.novelty)
+
+overlap = tiq.test.overlapTest("public_inbound", "20140715", "enriched",
+                               select.sources=NULL)
+
+overlap.plot = tiq.test.plotOverlapTest(overlap, title="Overlap Test - Inbound Data - 20140715")
+print(overlap.plot)
+
+
+outbound.pop = tiq.test.extractPopulationFromTI("public_outbound", "country",
+                                                date = "20140711",
+                                                select.sources=NULL, split.ti=F)
+inbound.pop = tiq.test.extractPopulationFromTI("public_inbound", "country",
+                                               date = "20140711",
+                                               select.sources=NULL, split.ti=F)
+
+complete.pop = tiq.data.loadPopulation("mmgeo", "country")
+tiq.test.plotPopulationBars(c(inbound.pop, outbound.pop, complete.pop), "country")
 ```
 
-There is also the requirement to set the data directory so the data functions
-know where to look.
+### Test Results
 
-```
-## Setting the root data path to where it should be in this repo
-.tiq.data.setRootPath(file.path(current.dir, "data"))
+``` r
+library(tiq)
 ```
 
-Check out usage examples for the tests here http://rpubs.com/alexcpsec/tiq-test-Summer2014-2
+    ## Loading required package: futile.logger
+    ## Loading required package: testthat
+    ## Loading required package: gridExtra
+    ## Loading required package: grid
+    ## Loading required package: ggplot2
+    ## Loading required package: data.table
+
+``` r
+library(testthat)
+
+date()
+```
+
+    ## [1] "Tue Jan 13 21:27:39 2015"
+
+``` r
+test_dir("tests/")
+```
+
+    ## basic functionality :

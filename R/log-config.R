@@ -3,7 +3,7 @@
 ## Handles configuration of the logging output for tiq-test
 
 ## Requires: Usage of `futile-logger` package
-library(futile.logger)
+# library(futile.logger)
 
 # Sets futile.logger formatter that includes timezone and the PID
 flog.layout(

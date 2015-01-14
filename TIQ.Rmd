@@ -1,0 +1,65 @@
+---
+title: "TIQ-TEST Experiments - Fall 2014"
+output: html_document
+---
+
+This is an R Markdown document for demonstrating the new tests and functionalities
+that are to be introduced in version 0.2 of tiq-test. No presentations have been made of this
+material yet.
+
+If you are looking at this file and has no idea what is going on, it might help to review
+the previous entry in this series at [RPubs](http://rpubs.com/alexcpsec/tiq-test-Summer2014-2)
+
+Please review our [github repository page](https://github.com/mlsecproject/tiq-test),
+report bugs and suggest features!
+
+Adding the TIQ-TEST functions
+```{r, message=FALSE}
+library(tiq)
+## Some limitations from not being an R package: Setting the Working directory
+tiqtest.dir = "/Volumes/bob/Development/tiq-test-Summer2014"
+
+## Setting the root data path to where it should be in this repo
+setRootPath(file.path(tiqtest.dir, "data"))
+```
+
+## Acessing the data using TIQ-TEST
+
+We have roughly a month of data available on this public dataset, and this is still
+the same dataset as the Summer 2014 presentations:
+```{r, message=FALSE}
+getAvailableDates("raw", "public_outbound")
+```
+
+## Aging Test
+
+The aging test will try to identify how long a specific indicator has lived in a
+threat feed. As with other tests, like the population and novelty, you are able
+to measure this information on aggregate of all your subgroups or separately.
+
+Here is it run against the whole dataset on the Outbound indicators, as they are
+separated out on subgroups:
+
+```{r, fig.height=10, fig.width=12, fig.align='center'}
+outbound.aging = agingTest("public_outbound", "20140615", "20140715", .progress = FALSE)
+plotAgingTest(outbound.aging)
+```
+
+You can also look at it as whole thing, as to evaluate the aging of your whole
+TI repository:
+
+```{r, fig.height=10, fig.width=12, fig.align='center'}
+outbound.full.aging = agingTest("public_outbound", "20140615", "20140715",
+                                split.ti=FALSE, .progress = FALSE)
+plotAgingTest(outbound.full.aging)
+```
+Here is it run against the whole dataset on the Inbound indicators. It is interesting
+to observe how they have different distributions because of the different ways of collecting
+the data:
+
+```{r, fig.height=10, fig.width=12, fig.align='center'}
+inbound.aging = agingTest("public_inbound", "20140615", "20140715", .progress=FALSE)
+plotAgingTest(inbound.aging)
+```
+
+That's all for now, folks! Feel free to suggest new tests and experiments!

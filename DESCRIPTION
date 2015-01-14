@@ -1,0 +1,27 @@
+Package: tiq
+Type: Package
+Title: tiq Provides Functions for Threat Intelligence IQ Tests.
+Version: 1.0
+Date: 2015-01-12
+Author: Alex Pinto (@alexcpsec)
+Maintainer: Alex Pinto <alexcp@gmail.com>
+Description: tiq provides functions for threat intelligence (TI) "IQ" tests
+URL: http://github.com/mlsecproject/tiq
+BugReports: https://github.com/mlsecproject/tiq/issues
+Imports:
+    reshape2,
+    dplyr,
+    tidyr,
+    grid,
+    scales
+License: GPL-3
+Suggests:
+    magrittr,
+    RColorBrewer
+Depends:
+    R (>= 3.0.0),
+    futile.logger,
+    testthat,
+    gridExtra,
+    ggplot2,
+    data.table
