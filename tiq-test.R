@@ -31,12 +31,12 @@ library(gridExtra)
 # - select.sources: a chararacter vector of the sources on the dataset you want
 #                   to be a part of the test, or NULL for all of them
 tiq.test.noveltyTest <- function(group, start.date, end.date, split.tii=TRUE,
-                                 select.sources=NULL) {
+                                 select.sources=NULL, .progress=TRUE) {
   # Parameter checking
   test_that("tiq.test.noveltyTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
-    expect_match(start.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
-    expect_match(end.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(start.date, "^[[:digit:]]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(end.date, "^[[:digit:]]{8}$", info="must be a date (YYYYMMDD)")
   })
 
   # Calculating the date range for the test form start and end dates
@@ -47,13 +47,16 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, split.tii=TRUE,
   ti.added.ratio = list()
   ti.churn.ratio = list()
 
+  if (.progress) pb = txtProgressBar(min = 1, max = length(date.range), style = 3)
+  if (.progress) pb_inc = 0
   ## For each date, get the respective RAW TI feed and calculate the counts
   ## per source that is a part of the group
   for (str.date in date.range) {
+    if (.progress) pb_inc = pb_inc + 1
+    if (.progress) setTxtProgressBar(pb = pb, value = pb_inc)
     ## Loading the RAW TI from the respective date and separating by source
     ti.dt = tiq.data.loadTI("raw", group, date=str.date)
     if (!is.null(ti.dt)) {
-
       if (split.tii) {
         split.ti = split(ti.dt, ti.dt$source)
       } else {
@@ -75,9 +78,9 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, split.tii=TRUE,
         ti.count[[name]][[str.date]] = nrow(split.ti[[name]])
         if (!is.null(prev.split.ti) && !is.null(prev.split.ti[[name]])) {
           ti.added.ratio[[name]][[str.date]] = tiq.helper.differenceCount(split.ti[[name]], prev.split.ti[[name]]) /
-                                               ti.count[[name]][[str.date]]
+            ti.count[[name]][[str.date]]
           ti.churn.ratio[[name]][[str.date]] = tiq.helper.differenceCount(prev.split.ti[[name]], split.ti[[name]]) /
-                                               ti.count[[name]][[str.date]]
+            ti.count[[name]][[str.date]]
 
           ## This adjustment is necessary to compensate for data collection issues
           ## we had on outbound feeds. You can't really change more then everything you got
@@ -90,6 +93,7 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, split.tii=TRUE,
     }
     prev.split.ti = split.ti
   }
+  if (.progress) close(pb)
 
   return(list(ti.count=ti.count, ti.added.ratio=ti.added.ratio, ti.churn.ratio=ti.churn.ratio))
 }
@@ -216,6 +220,7 @@ tiq.test.overlapTest <- function(group, date, type="raw", split.tii=TRUE, select
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
 tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.sources=NULL) {
+
   if (!is.matrix(overlap) || (dim(overlap)[1] != dim(overlap)[2])) {
     msg = sprintf("tiq.test.plotOverlapTest: 'overlap' parameter mush be a square matrix")
     flog.error(msg)
@@ -223,15 +228,24 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
   }
 
   plot.data = as.data.table(melt(overlap))
+
   if (!is.null(plot.sources)) {
     plot.data = plot.data[as.character(Var1) %chin% plot.sources]
     plot.data = plot.data[as.character(Var2) %chin% plot.sources]
   }
 
-  q = qplot(x=Var1, y=Var2, data=plot.data, fill=value, geom="tile",
-            xlab="Source (is contained)", ylab="Source (contains)", main=title)
-  return(q + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=12))
-         + theme(axis.text.y = element_text(hjust = 1, size=12)))
+  gg <- ggplot(plot.data, aes(x=Var1, y=Var2))
+  gg <- gg + geom_tile(aes(fill=value), color="#e3e3e3", size=0.5)
+  gg <- gg + coord_equal()
+  gg <- gg + scale_fill_distiller(palette="YlOrBr", name="%\nOverlap")#, labels=percent)
+  gg <- gg + labs(x="Source (is contained)", y="Source (contains)", title=title)
+  gg <- gg + theme_bw()
+  gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=12))
+  gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=12))
+  gg <- gg + theme(panel.grid=element_blank())
+  gg <- gg + theme(panel.border=element_blank())
+
+  return(gg)
 }
 
 ################################################################################
