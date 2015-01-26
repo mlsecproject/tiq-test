@@ -30,7 +30,8 @@ library(gridExtra)
 # - end.date: the end date for the test
 # - select.sources: a chararacter vector of the sources on the dataset you want
 #                   to be a part of the test, or NULL for all of them
-tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NULL) {
+tiq.test.noveltyTest <- function(group, start.date, end.date, split.tii=TRUE,
+                                 select.sources=NULL) {
   # Parameter checking
   test_that("tiq.test.noveltyTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
@@ -52,7 +53,13 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
     ## Loading the RAW TI from the respective date and separating by source
     ti.dt = tiq.data.loadTI("raw", group, date=str.date)
     if (!is.null(ti.dt)) {
-      split.ti = split(ti.dt, ti.dt$source)
+
+      if (split.tii) {
+        split.ti = split(ti.dt, ti.dt$source)
+      } else {
+        split.ti = list(ti.dt)
+        names(split.ti) <- group
+      }
 
       ## Performing the novelty test only on the sources we select
       if (!is.null(select.sources)) {
@@ -147,7 +154,7 @@ tiq.test.plotNoveltyTest <- function(novelty, plot.sources=NULL) {
 #          the enriched entities ("enriched")
 # - select.sources: a chararacter vector of the sources on the dataset you want
 #                   to be a part of the test, or NULL for all of them
-tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
+tiq.test.overlapTest <- function(group, date, type="raw", split.tii=TRUE, select.sources=NULL) {
 
   test_that("tiq.test.overlapTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
@@ -156,8 +163,23 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
   })
 
   # Loading the data from the specific date
-  ti.dt = tiq.data.loadTI(type, group, date=date)
-  split.ti = split(ti.dt, ti.dt$source)
+  ti.data = lapply(group, tiq.data.loadTI, category=type, date=date)
+  names(ti.data) <- group
+
+  if (split.tii) {
+    ti.data.list = lapply(ti.data, function(ti.dt) {
+      split(ti.dt, ti.dt$source)
+    })
+    ti.data = unlist(ti.data.list, recursive=F)
+  }
+
+  group_names = names(ti.data)
+  split.ti = mapply(function(dt, group) {
+                    dt[, source := group]
+                  }, ti.data, group_names, SIMPLIFY=F, USE.NAMES=F)
+  names(split.ti) <- group_names
+
+  ti.dt = rbindlist(split.ti)
 
   ## Performing the overlap test only on the sources we select
   if (is.null(select.sources)) {
@@ -333,7 +355,7 @@ tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
   }
 
   ## Let's try to organize them in on top of each other
-  plots = c(plots, list(ncol=1))
+  plots = c(plots, list(ncol=1, main=title))
   do.call(grid.arrange, plots)
 }
 
@@ -506,7 +528,8 @@ tiq.test.agingTest <- function(group, start.date, end.date, type = "raw",
 # - title: a title for your plot. NULL leaves it blank
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
-tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL) {
+tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL,
+                                   density.limit=NULL) {
   # Parameter checking
   test_that("tiq.test.plotAgingTest: parameters must have correct types", {
     expect_is(aging.data, "tiqtest.agingtest")
@@ -538,6 +561,10 @@ tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL) {
       ylab("Density") +
       xlab("Indicator Age") +
       ggtitle(paste0("Source: '", name, "'\nSampled Time: ", total.days, " days"))
+    if (!is.null(density.limit)) {
+      plots[[name]] = plots[[name]] + coord_cartesian(ylim=c(0, density.limit))
+    }
+
   }
 
   ## Let's try to organize them in a square-ish format
