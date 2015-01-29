@@ -12,6 +12,7 @@ source("utils/tiq-helper.R")
 library(reshape2)
 library(ggplot2)
 library(gridExtra)
+library(scales)
 
 ################################################################################
 ## NOVELTY Test
@@ -237,7 +238,7 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
   gg <- ggplot(plot.data, aes(x=Var1, y=Var2))
   gg <- gg + geom_tile(aes(fill=value), color="#e3e3e3", size=0.5)
   gg <- gg + coord_equal()
-  gg <- gg + scale_fill_distiller(palette="YlOrBr", name="%\nOverlap")#, labels=percent)
+  gg <- gg + scale_fill_distiller(palette="YlOrBr", name="%\nOverlap", labels=percent)
   gg <- gg + labs(x="Source (is contained)", y="Source (contains)", title=title)
   gg <- gg + theme_bw()
   gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=12))
