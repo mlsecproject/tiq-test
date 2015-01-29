@@ -53,35 +53,35 @@ packageVersion("tiq")
 tiqtest.dir = "/SOME/DATA/DIR/tiq-test-Summer2014"
 current.dir = setwd(tiqtest.dir)
 
-tiq.data.setRootPath(file.path(current.dir, "data"))
+setRootPath(file.path(current.dir, "data"))
 
-tiq.data.getAvailableDates("raw", "public_outbound")
+getAvailableDates("raw", "public_outbound")
 
 outbound.ti = tiq.data.loadTI("raw", "public_outbound", "20140701")
 
 outbound.ti[, list(entity, type, direction, source, date)]
-inbound.novelty = tiq.test.noveltyTest("public_inbound", "20140615", "20140630",
+inbound.novelty = noveltyTest("public_inbound", "20140615", "20140630",
                                        select.sources=c("alienvault", "blocklistde",
                                                         "dshield", "charleshaley"))
 
-tiq.test.plotNoveltyTest(inbound.novelty)
+plotNoveltyTest(inbound.novelty)
 
-overlap = tiq.test.overlapTest("public_inbound", "20140715", "enriched",
+overlap = overlapTest("public_inbound", "20140715", "enriched",
                                select.sources=NULL)
 
-overlap.plot = tiq.test.plotOverlapTest(overlap, title="Overlap Test - Inbound Data - 20140715")
+overlap.plot = plotOverlapTest(overlap, title="Overlap Test - Inbound Data - 20140715")
 print(overlap.plot)
 
 
-outbound.pop = tiq.test.extractPopulationFromTI("public_outbound", "country",
+outbound.pop = extractPopulationFromTI("public_outbound", "country",
                                                 date = "20140711",
                                                 select.sources=NULL, split.ti=F)
-inbound.pop = tiq.test.extractPopulationFromTI("public_inbound", "country",
+inbound.pop = extractPopulationFromTI("public_inbound", "country",
                                                date = "20140711",
                                                select.sources=NULL, split.ti=F)
 
-complete.pop = tiq.data.loadPopulation("mmgeo", "country")
-tiq.test.plotPopulationBars(c(inbound.pop, outbound.pop, complete.pop), "country")
+complete.pop = loadPopulation("mmgeo", "country")
+plotPopulationBars(c(inbound.pop, outbound.pop, complete.pop), "country")
 
 ```
 

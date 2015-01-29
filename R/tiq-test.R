@@ -103,17 +103,17 @@ plotNoveltyTest <- function(novelty, sources=NULL) {
     plot.sources = names(novelty$ti.added.ratio)
   }
 
-  tmp <- as.data.frame(novelty$ti.added.ratio)
+  tmp <- as.data.frame(fixup(novelty$ti.added.ratio))
   tmp$date <- rownames(tmp)
   rownames(tmp) <- NULL
   added_ratio <- gather(tmp, source, added_ratio, -date)
 
-  tmp <- as.data.frame(novelty$ti.churn.ratio)
+  tmp <- as.data.frame(fixup(novelty$ti.churn.ratio))
   tmp$date <- rownames(tmp)
   rownames(tmp) <- NULL
   churn_ratio <- gather(tmp, source, churn_ratio, -date)
 
-  tmp <- as.data.frame(novelty$ti.count)
+  tmp <- as.data.frame(fixup(novelty$ti.count))
   tmp$date <- rownames(tmp)
   rownames(tmp) <- NULL
   ti_count <- gather(tmp, source, ti_count, -date)
@@ -132,8 +132,8 @@ plotNoveltyTest <- function(novelty, sources=NULL) {
                          source, comma(avg_size))) -> tmp
 
   gg <- ggplot(tmp, aes(x=date))
-  gg <- gg + geom_bar(stat="identity", aes(y=added_ratio, fill=added_color))#, fill="#bf812d")
-  gg <- gg + geom_bar(stat="identity", aes(y=churn_ratio, fill=churn_color))#, fill="#35978f")
+  gg <- gg + geom_bar(stat="identity", aes(y=added_ratio, fill=added_color))
+  gg <- gg + geom_bar(stat="identity", aes(y=churn_ratio, fill=churn_color))
   gg <- gg + geom_hline(yintercept=0, color="black", size=0.5)
   gg <- gg + scale_y_continuous(labels=comma)
   gg <- gg + scale_fill_identity(name="Variation", labels=c("Added", "Churn"), guide="legend")
@@ -168,7 +168,7 @@ overlapTest <- function(group, date, type="raw", select.sources=NULL) {
 
   test_that("tiq.test.overlapTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
-    expect_match(date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(date, "^[[:digit:]]{8}$", info="must be a date (YYYYMMDD)")
     expect_that(class(type), equals("character"))
   })
 
@@ -268,7 +268,7 @@ extractPopulationFromTI <- function(group, pop.id, date, split.ti = TRUE,
   test_that("tiq.test.extractPopulationFromTI: parameters must have correct types", {
     expect_that(class(group), equals("character"))
     expect_that(class(pop.id), equals("character"))
-    expect_match(date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(date, "^[[:digit:]]{8}$", info="must be a date (YYYYMMDD)")
     expect_that(class(split.ti), equals("logical"))
   })
 
