@@ -9,8 +9,9 @@
 .Rproj.user
 .Rproj
 
-# Ignoring our "log" directory
+# Ignoring our "log" and "data" directory
 log/
+data/
 
 ## Marckdown things
 README.html

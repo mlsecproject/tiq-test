@@ -579,11 +579,106 @@ tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL,
     if (!is.null(density.limit)) {
       plots[[name]] = plots[[name]] + coord_cartesian(ylim=c(0, density.limit))
     }
-
   }
 
   ## Let's try to organize them in a square-ish format
   rows = ceiling(sqrt(length(plots)))
   plots = c(plots, list(ncol=rows, main=title))
   do.call(grid.arrange, plots)
+}
+
+# Uniqueness
+tiq.test.uniquenessTest <- function(group, start.date, end.date = start.date,
+																		type="raw", split.tii=TRUE, select.sources=NULL) {
+
+	test_that("tiq.test.uniquenessTest: parameters must have correct types", {
+		expect_that(class(group), equals("character"))
+		expect_match(start.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+		expect_match(end.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+		expect_that(class(type), equals("character"))
+	})
+
+	# Calculating the date range for the test form start and end dates
+	date.range = .tiq.data.getDateSequence(start.date, end.date)
+
+	# Loading the data from the specific date
+	loadDate <- function(date) {
+		ti.data = lapply(group, tiq.data.loadTI, category=type, date=date)
+		names(ti.data) <- group
+
+		# Some bad code for making sure the length of split.tii matches ti.data
+		split.tii <- rep(split.tii, length(ti.data))
+		split.tii <- split.tii[1:length(ti.data)]
+
+		ti.data.list = mapply(function(ti.dt, doSplit) {
+			if (doSplit) {
+				if (!is.null(ti.dt)) split(ti.dt, ti.dt$source)
+				else ti.dt
+			} else {
+				list(ti.dt)
+			}
+		}, ti.data, split.tii, SIMPLIFY=F)
+		ti.data = unlist(ti.data.list, recursive=F)
+
+		group_names = names(ti.data)
+		split.ti = mapply(function(dt, group) {
+			if (!is.null(dt)) dt[, source := group]
+			else dt
+		}, ti.data, group_names, SIMPLIFY=F, USE.NAMES=F)
+		names(split.ti) <- group_names
+
+		ti.dt = rbindlist(split.ti)
+		return(ti.dt)
+	}
+
+	# Applying over multiple dates and removing duplicates across dates so they
+	# don't get double-counted
+	ti.dt.list <- lapply(date.range, loadDate)
+	ti.dt <- rbindlist(ti.dt.list)
+	ti.dt <- unique(ti.dt, by=c("entity", "type", "direction", "source"))
+
+	## Performing the uniqueness test only on the sources we select
+	if (is.null(select.sources)) {
+		select.sources = unique(ti.dt$source)
+	}
+
+	if (length(select.sources) > 1) {
+		uniqueness.dt <- ti.dt[, list(count = .N), by=c("entity", "type", "direction")]
+		uniqueness.stats <- uniqueness.dt[, list(ratio = .N/nrow(uniqueness.dt)), by="count"]
+		uniqueness.stats[, days := length(date.range)]
+		setkey(uniqueness.stats, count)
+	} else {
+		uniqueness.stats <- NULL
+	}
+
+	return(uniqueness.stats)
+}
+
+if (F) {
+group = c("public_outbound")
+group = c("public_outbound", "private1")
+start.date = "20141001"
+end.date = "20141130"
+type = "enriched"
+split.tii = c(TRUE, FALSE)
+select.sources = NULL
+
+flog.threshold(INFO)
+uniqueTest = rbind(
+tiq.test.uniquenessTest(group, start.date, end.date = "20141001", type, split.tii, select.sources=NULL),
+tiq.test.uniquenessTest(group, start.date, end.date = "20141030", type, split.tii, select.sources=NULL),
+tiq.test.uniquenessTest(group, start.date, end.date = "20141130", type, split.tii, select.sources=NULL)
+)
+
+#uniqueTest = tiq.test.uniquenessTest(group, start.date, end.date = "20141130", type, split.tii, select.sources=NULL)
+
+
+gg <- ggplot(data=uniqueTest, aes(x=as.factor(count), y=ratio, fill=as.factor(days)))
+gg <- gg + geom_bar(stat="identity", position=position_dodge(), colour="black")
+gg <- gg + scale_fill_brewer(palette="Oranges", name="Combined\nDays")
+gg <- gg + labs(x="TI Feeds Count", y="Ratio of Indicators", title="Uniqueness Test")
+gg <- gg + theme_bw()
+gg <- gg + theme(axis.text.x = element_text(hjust = 1, size=12))
+gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=12))
+gg
 }

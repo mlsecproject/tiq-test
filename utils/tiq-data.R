@@ -61,8 +61,8 @@ tiq.data.getAvailableDates <- function(category, group) {
 #  - end.date: the final date of the sequence
 .tiq.data.getDateSequence <- function(start.date, end.date) {
   # We need to have at least 2 different sequantial days to greate the range
-  if (end.date <= start.date) {
-    msg = sprintf("tiq.data.getDateSequence: The end.date %s must be later than the start.date %s",
+  if (end.date < start.date) {
+    msg = sprintf("tiq.data.getDateSequence: The end.date %s must be later than or equal to the start.date %s",
                   end.date, start.date)
     flog.error(msg)
     stop(msg)
