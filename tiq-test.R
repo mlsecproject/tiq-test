@@ -13,6 +13,8 @@ library(reshape2)
 library(ggplot2)
 library(gridExtra)
 library(scales)
+library(dplyr)
+library(tidyr)
 
 ################################################################################
 ## NOVELTY Test
@@ -104,44 +106,60 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, split.tii=TRUE,
 # - novelty: the output of the 'tiq.test.noveltyTest' function
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
-tiq.test.plotNoveltyTest <- function(novelty, plot.sources=NULL) {
+tiq.test.plotNoveltyTest <- function(novelty, title="TIQ Novelty Test", plot.sources=NULL) {
 
-  test_that("tiq.test.plotNoveltyTest: parameters must have correct types", {
-    expect_that(class(novelty), equals("list"))
-    expect_that(class(novelty$ti.count), equals("list"))
-    expect_that(class(novelty$ti.added.ratio), equals("list"))
-    expect_that(class(novelty$ti.churn.ratio), equals("list"))
-  })
+	test_that("tiq.test.plotNoveltyTest: parameters must have correct types", {
+		expect_that(class(novelty), equals("list"))
+		expect_that(class(novelty$ti.count), equals("list"))
+		expect_that(class(novelty$ti.added.ratio), equals("list"))
+		expect_that(class(novelty$ti.churn.ratio), equals("list"))
+	})
 
-  ## Plotting the data (to be improved)
-  if (is.null(plot.sources)) {
-    plot.sources = names(novelty$ti.added.ratio)
-  }
+	if (is.null(plot.sources)) {
+		plot.sources = names(novelty$ti.added.ratio)
+	}
 
-  # Calculating the plots
-  plots = list()
-  for (name in plot.sources) {
-    added.ratio = novelty$ti.added.ratio[[name]]
-    churn.ratio = novelty$ti.churn.ratio[[name]]
-    df.ratio = rbind(data.frame(group="Added", date=names(added.ratio), ratio=added.ratio),
-                     data.frame(group="Churn", date=names(churn.ratio), ratio=-churn.ratio))
+	tmp <- as.data.frame(fixup(novelty$ti.added.ratio))
+	tmp$date <- rownames(tmp)
+	rownames(tmp) <- NULL
+	added_ratio <- gather(tmp, source, added_ratio, -date)
 
-    plots[[name]] = ggplot(df.ratio, aes(x=date, y=ratio, fill=group)) +
-                      geom_bar(stat="identity", position="identity") +
-                      theme(axis.text.x = element_text(angle = 90, hjust = 1, size=7)) +
-                      theme(axis.text.y = element_text(hjust = 1, size=12)) +
-                      scale_fill_discrete(name="Variation") +
-                      ylab("Change Ratio per Day") +
-                      xlab("Date") +
-                      ggtitle(paste0("Source Name: ", name, "\nAvg. Size: ",
-                                     floor(mean(novelty$ti.count[[name]]))))
-  }
+	tmp <- as.data.frame(fixup(novelty$ti.churn.ratio))
+	tmp$date <- rownames(tmp)
+	rownames(tmp) <- NULL
+	churn_ratio <- gather(tmp, source, churn_ratio, -date)
 
-  ## Let's try to organize them in a square-ish format
-  rows = ceiling(sqrt(length(plots)))
-  plots = c(plots, list(nrow=rows))
+	tmp <- as.data.frame(fixup(novelty$ti.count))
+	tmp$date <- rownames(tmp)
+	rownames(tmp) <- NULL
+	ti_count <- gather(tmp, source, ti_count, -date)
 
-  do.call(grid.arrange, plots)
+	tmp <- merge(merge(added_ratio, churn_ratio), ti_count)
+
+	tmp$churn_ratio <- -tmp$churn_ratio
+	tmp$churn_color <- "#35978f"
+	tmp$added_color <- "#bf812d"
+
+	tmp %>%
+		filter(source %in% plot.sources) %>%
+		group_by(source) %>%
+		mutate(avg_size=floor(mean(ti_count, na.rm=T)),
+					 label=sprintf("Source Name: %s\nAvg. Size: %s",
+					 							source, comma(avg_size))) -> tmp
+
+	gg <- ggplot(tmp, aes(x=date))
+	gg <- gg + geom_bar(stat="identity", aes(y=added_ratio, fill=added_color), colour="grey")
+	gg <- gg + geom_bar(stat="identity", aes(y=churn_ratio, fill=churn_color), colour="grey")
+	gg <- gg + geom_hline(yintercept=0, color="black", size=0.5)
+	gg <- gg + scale_y_continuous(labels=comma)
+	gg <- gg + scale_fill_identity(name="Variation", labels=c("Added", "Churn"), guide="legend")
+	gg <- gg + facet_wrap(~label, ncol=2, scales="free_y")
+	gg <- gg + labs(y="Change Ratio per Day", x=NULL, title=title)
+	gg <- gg + theme_bw()
+	gg <- gg + theme(axis.text.x=element_text(angle=90, hjust=1, size=7))
+	gg <- gg + theme(strip.background=element_blank())
+
+	gg
 }
 
 ################################################################################
