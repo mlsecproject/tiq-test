@@ -189,12 +189,19 @@ tiq.test.overlapTest <- function(group, date, type="raw", split.tii=TRUE, select
   ti.data = lapply(group, tiq.data.loadTI, category=type, date=date)
   names(ti.data) <- group
 
-  if (split.tii) {
-    ti.data.list = lapply(ti.data, function(ti.dt) {
-      split(ti.dt, ti.dt$source)
-    })
-    ti.data = unlist(ti.data.list, recursive=F)
-  }
+  # Some bad code for making sure the length of split.tii matches ti.data
+  split.tii <- rep(split.tii, length(ti.data))
+  split.tii <- split.tii[1:length(ti.data)]
+
+  ti.data.list = mapply(function(ti.dt, doSplit) {
+  	if (doSplit) {
+  		if (!is.null(ti.dt)) split(ti.dt, ti.dt$source)
+  		else ti.dt
+  	} else {
+  		list(ti.dt)
+  	}
+  }, ti.data, split.tii, SIMPLIFY=F)
+  ti.data = unlist(ti.data.list, recursive=F)
 
   group_names = names(ti.data)
   split.ti = mapply(function(dt, group) {
