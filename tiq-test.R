@@ -679,31 +679,18 @@ tiq.test.uniquenessTest <- function(group, start.date, end.date = start.date,
 	return(uniqueness.stats)
 }
 
-if (F) {
-group = c("public_outbound")
-group = c("public_outbound", "private1")
-start.date = "20141001"
-end.date = "20141130"
-type = "enriched"
-split.tii = c(TRUE, FALSE)
-select.sources = NULL
+tiq.test.plotUniquenessTest <- function(uniqueness.data, title="Uniqueness Test") {
+	# Parameter checking
+	test_that("plotUniquenessTest: parameters must have correct types", {
+		expect_is(uniqueness.data, "data.table")
+	})
 
-flog.threshold(INFO)
-uniqueTest = rbind(
-tiq.test.uniquenessTest(group, start.date, end.date = "20141001", type, split.tii, select.sources=NULL),
-tiq.test.uniquenessTest(group, start.date, end.date = "20141030", type, split.tii, select.sources=NULL),
-tiq.test.uniquenessTest(group, start.date, end.date = "20141130", type, split.tii, select.sources=NULL)
-)
-
-#uniqueTest = tiq.test.uniquenessTest(group, start.date, end.date = "20141130", type, split.tii, select.sources=NULL)
-
-
-gg <- ggplot(data=uniqueTest, aes(x=as.factor(count), y=ratio, fill=as.factor(days)))
-gg <- gg + geom_bar(stat="identity", position=position_dodge(), colour="black")
-gg <- gg + scale_fill_brewer(palette="Oranges", name="Combined\nDays")
-gg <- gg + labs(x="TI Feeds Count", y="Ratio of Indicators", title="Uniqueness Test")
-gg <- gg + theme_bw()
-gg <- gg + theme(axis.text.x = element_text(hjust = 1, size=12))
-gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=12))
-gg
+	gg <- ggplot(data=uniqueness.data, aes(x=as.factor(count), y=ratio, fill=as.factor(days)))
+	gg <- gg + geom_bar(stat="identity", position=position_dodge(), colour="black")
+	gg <- gg + scale_fill_brewer(palette="Oranges", name="Combined\nDays")
+	gg <- gg + labs(x="Number TI Feeds", y="Ratio of Indicators", title=title)
+	gg <- gg + theme_bw()
+	gg <- gg + theme(axis.text.x = element_text(hjust = 1, size=12))
+	gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=12))
+	gg
 }
