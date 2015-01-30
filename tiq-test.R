@@ -575,47 +575,41 @@ tiq.test.agingTest <- function(group, start.date, end.date, type = "raw",
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
 tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL,
-                                   density.limit=NULL) {
-  # Parameter checking
-  test_that("tiq.test.plotAgingTest: parameters must have correct types", {
-    expect_is(aging.data, "tiqtest.agingtest")
-  })
+																	 density.limit=NULL) {
+	# Parameter checking
+	test_that("plotAgingTest: parameters must have correct types", {
+		expect_is(aging.data, "tiqtest.agingtest")
+	})
 
-  # Important for graph alignment
-  total.days = aging.data[["_agingtest.days"]]
-  aging.data[["_agingtest.days"]] = NULL
+	# Important for graph alignment
+	total.days = aging.data[["_agingtest.days"]]
+	aging.data[["_agingtest.days"]] = NULL
 
-  # Selecting the sources to plot
-  if (is.null(plot.sources)) {
-    plot.sources = names(aging.data)
-  }
+	# Selecting the sources to plot
+	if (is.null(plot.sources)) {
+		plot.sources = names(aging.data)
+	}
 
-  # Creating the Plots
-  plots = list()
-  for (name in plot.sources) {
-    dt_aging = data.table(age=aging.data[[name]])
+	tmp <- names(aging.data)
+	source_dat <- rbindlist(lapply(tmp, function(x) {
+		data.frame(source=sprintf("Source: '%s'", x), value=aging.data[[x]])
+	}))
 
-    plots[[name]] =
-      ggplot(dt_aging, aes(x=age)) +
-      geom_histogram(aes(y=..density..),  # Histogram with density instead of count on y-axis
-                     binwidth=1,
-                     colour="black", fill="white") +
-      geom_density(alpha=.2, fill="#FF6666") +
-      xlim(0, total.days + 1) +
-      theme(axis.text.x = element_text(size=12, colour="black")) +
-      theme(axis.text.y = element_text(size=12, colour="black")) +
-      ylab("Density") +
-      xlab("Indicator Age") +
-      ggtitle(paste0("Source: '", name, "'\nSampled Time: ", total.days, " days"))
-    if (!is.null(density.limit)) {
-      plots[[name]] = plots[[name]] + coord_cartesian(ylim=c(0, density.limit))
-    }
-  }
-
-  ## Let's try to organize them in a square-ish format
-  rows = ceiling(sqrt(length(plots)))
-  plots = c(plots, list(ncol=rows, main=title))
-  do.call(grid.arrange, plots)
+	gg <- ggplot(source_dat, aes(x=value))
+	gg <- gg + geom_histogram(aes(y=..density..),  # Histogram with density instead of count on y-axis
+														binwidth=1, colour="black", fill="#f5f5f5")
+	gg <- gg + geom_density(alpha=.2, fill="#01665e")
+	gg <- gg + xlim(0, total.days + 1)
+	gg <- gg + facet_wrap(~source, scales="free_y")
+	gg <- gg + labs(x="Indicator Age", y="Density",
+									title=paste0(title, sprintf(" - Sampled Time: %s days", total.days)))
+	gg <- gg + theme_bw()
+	gg <- gg + theme(axis.text=element_text(size=12, colour="black"))
+	gg <- gg + theme(strip.background=element_blank())
+	if (!is.null(density.limit)) {
+		gg <- gg + coord_cartesian(ylim=c(0, density.limit))
+	}
+	gg
 }
 
 # Uniqueness
