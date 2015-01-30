@@ -345,51 +345,57 @@ tiq.test.extractPopulationFromTI <- function(group, pop.id, date, split.ti = TRU
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
 tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
-                                        title="", plot.sources=NULL) {
-  # Parameter checking
-  test_that("tiq.test.plotPopulationBars: parameters must have correct types", {
-    expect_that(class(pop.data), equals("list"))
-    expect_that(class(pop.id), equals("character"))
-    expect_that(class(table.size), equals("numeric"))
-    expect_that(class(title), equals("character"))
-  })
+															 title="", plot.sources=NULL) {
+	# Parameter checking
+	test_that("tiq.test.plotPopulationBars: parameters must have correct types", {
+		expect_that(class(pop.data), equals("list"))
+		expect_that(class(pop.id), equals("character"))
+		expect_that(class(table.size), equals("numeric"))
+		expect_that(class(title), equals("character"))
+	})
 
-  ## Plotting the data (to be improved)
-  if (is.null(plot.sources)) {
-    plot.sources = names(pop.data)
-  }
+	## Plotting the data (to be improved)
+	if (is.null(plot.sources)) {
+		plot.sources = names(pop.data)
+	}
 
-  # Preparing the data and calculating the max proportion we have
-  max.pop = 0.0
-  for (name in plot.sources) {
-    pop = pop.data[[name]]
-    pop[, totalIPs := totalIPs / sum(pop$totalIPs)]
-    if (max(pop$totalIPs) > max.pop) max.pop = max(pop$totalIPs)
-  }
+	# Preparing the data and calculating the max proportion we have
+	max.pop = 0.0
+	for (name in plot.sources) {
+		pop = pop.data[[name]]
+		pop[, totalIPs := totalIPs / sum(pop$totalIPs)]
+		if (max(pop$totalIPs) > max.pop) max.pop = max(pop$totalIPs)
+	}
 
-  # Creating the Plots
-  plots = list()
-  for (name in plot.sources) {
-    pop = copy(pop.data[[name]])
-    pop = pop[order(totalIPs, decreasing=TRUE)]
-    if (table.size > 0) pop = pop[1:table.size]
-    pop = pop[order(totalIPs, decreasing=FALSE)]
-    setnames(pop, pop.id, "pop.id")
+	# Creating the Plots
+	plots = list()
+	for (name in plot.sources) {
 
-    plots[[name]] = ggplot(pop, aes(x=reorder(pop.id,totalIPs), y=totalIPs)) +
-                      geom_bar(stat="identity", fill="red", colour="black", width=0.65) +
-                      ylim(0.0, max.pop) +
-                      coord_flip() +
-                      theme(axis.text.x = element_text(size=12, colour="black")) +
-                      theme(axis.text.y = element_text(size=12, colour="black")) +
-                      ylab(paste0("IP Ratio")) +
-                      scale_x_discrete(name="", labels=sprintf("%s (%.2f)",pop$pop.id, pop$totalIPs)) +
-                      ggtitle(paste0("Population Summary by ", pop.id, " (",name,")"))
-  }
+		pop = copy(pop.data[[name]])
+		pop = pop[order(totalIPs, decreasing=TRUE)]
 
-  ## Let's try to organize them in on top of each other
-  plots = c(plots, list(ncol=1, main=title))
-  do.call(grid.arrange, plots)
+		if (table.size > 0) pop = pop[1:table.size]
+
+		pop = pop[order(totalIPs, decreasing=FALSE)]
+
+		setnames(pop, pop.id, "pop.id")
+
+		gg <- ggplot(pop, aes(x=reorder(pop.id,totalIPs), y=totalIPs))
+		gg <- gg + geom_bar(stat="identity", fill="#543005", width=0.65)
+		gg <- gg + scale_x_discrete(expand=c(0,0), name="", labels=sprintf("%s (%.2f)", pop$pop.id, pop$totalIPs))
+		gg <- gg + scale_y_continuous(expand=c(0,0), limits=c(0.0, max.pop))
+		gg <- gg + labs(y="IP Ratio", title=paste0("Population Summary by ", pop.id, " (",name,")"))
+		gg <- gg + coord_flip()
+		gg <- gg + theme_bw()
+		gg <- gg + theme(axis.text = element_text(size=12, colour="black"))
+		gg <- gg + theme(axis.ticks.y = element_blank())
+
+		plots[[name]] = gg
+	}
+
+	## Let's try to organize them in on top of each other
+	plots = c(plots, list(ncol=1))
+	do.call(grid.arrange, plots)
 }
 
 # tiq.test.populationInference - returns a data.table
