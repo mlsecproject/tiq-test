@@ -2,7 +2,7 @@ tiq-test - Threat Intelligence Quotient Test
 ============================================
 Dataviz and Statistical Analysis of Threat Intelligence Indicator feeds
 
-# First batch of presentations
+### First batch of presentations
 
 These presentations introduced `combine` and `tiq-test` with the 3 initial tests:
 * BSides LV 2014 - "Measuring the IQ of your threat intelligence feeds"
@@ -11,19 +11,20 @@ These presentations introduced `combine` and `tiq-test` with the 3 initial tests
 * HushCon 2014 - "Measuring the IQ of your threat intelligence feeds"
 
 The data repository and R Markdown source for these talks can be found at https://github.com/mlsecproject/tiq-test-Summer2014
+
 Follow the RPubs file at http://bit.ly/tiqtest-rpubs
 
-# Second batch of presentations
+### Second batch of presentations
 
 These presentations introduced the Aging and Uniqueness tests:
 * nbtcon 2014: "From Threat Intelligence to Defense Cleverness: A Data Science Approach"
 * SANS CTI Summit 2015: "From Threat Intelligence to Defense Cleverness: A Data Science Approach"
 
 The data repository and R Markdown source for these talks can be found at https://github.com/mlsecproject/tiq-test-Winter2015
+
 Follow the RPubs file at http://rpubs.com/alexcpsec/tiq-test-Winter2015
 
-Copyright Info
---------------
+## Copyright Info
 Copyright 2014-2015 (c) MLSec Project
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,8 +39,8 @@ all copies or substantial portions of the Software.
 
 Licensed under GPLv3 - https://github.com/mlsecproject/tiq-test/blob/master/LICENSE
 
-Requirements
-------------
+## Requirements
+
 In order to run these scripts, you will need to install R on your computer. We also suggest using RStudio as an IDE.
 
 * Downloading and Installing R - http://cran.us.r-project.org/
@@ -66,14 +67,13 @@ install.packages(c("futile.logger", "data.table", "testthat",
                  repos="http://cran.us.r-project.org")
 ```
 
-How to use these tools
-----------------------
+## How to use these tools
 
 This is not an R package (yet) so it is necessary for you to set the working directory
 to the directory where you clone this repository in order for the functions to work.
 
 ```
-## Some limitations from not being an R package: Setting the Working directory
+### Some limitations from not being an R package: Setting the Working directory
 tiqtest.dir = "../tiq-test"
 current.dir = setwd(tiqtest.dir)
 source("tiq-test.R")
@@ -83,7 +83,7 @@ There is also the requirement to set the data directory so the data functions
 know where to look.
 
 ```
-## Setting the root data path to where it should be in this repo
+### Setting the root data path to where it should be in this repo
 .tiq.data.setRootPath(file.path(current.dir, "data"))
 ```
 
