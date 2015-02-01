@@ -43,7 +43,7 @@ library(testthat)
 # group.
 #  - category: currently one of "raw", "enriched", "population"
 #  - group: the intel group you want the path for
-.tiq.data.getAvailableDates <- function(category, group) {
+tiq.data.getAvailableDates <- function(category, group) {
   path = .tiq.data.getDirPath(category, group)
 
   # Only get the files that match our description for this "database"
@@ -61,8 +61,8 @@ library(testthat)
 #  - end.date: the final date of the sequence
 .tiq.data.getDateSequence <- function(start.date, end.date) {
   # We need to have at least 2 different sequantial days to greate the range
-  if (end.date <= start.date) {
-    msg = sprintf("tiq.data.getDateSequence: The end.date %s must be later than the start.date %s",
+  if (end.date < start.date) {
+    msg = sprintf("tiq.data.getDateSequence: The end.date %s must be later than or equal to the start.date %s",
                   end.date, start.date)
     flog.error(msg)
     stop(msg)
@@ -130,7 +130,7 @@ tiq.data.loadPopulation <- function(pop.group, pop.id, date = NULL) {
   # If we do not have a date, we get the latest one we have available
   # The dates are in "%Y%M%d" format, so they can be lexicographically ordered
   if (is.null(date)) {
-    date = max(.tiq.data.getAvailableDates(category, group))
+    date = max(tiq.data.getAvailableDates(category, group))
   }
 
   # Getting the data path
@@ -156,4 +156,14 @@ tiq.data.loadPopulation <- function(pop.group, pop.id, date = NULL) {
   }
 
   return(ti.dt)
+}
+
+# tiq.data.isDatasetAvailable - returns logical
+# Checks if the data repository for the specific 'category' and 'group' of TI
+# or population information is available
+#  - category: currently one of "raw", "enriched", "population"
+#  - group: the intel group you want the path for
+tiq.data.isDatasetAvailable <- function(category, group) {
+  path = file.path(.tiq.data.rootPath, category, group)
+  return(file.exists(path))
 }

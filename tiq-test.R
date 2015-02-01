@@ -12,6 +12,9 @@ source("utils/tiq-helper.R")
 library(reshape2)
 library(ggplot2)
 library(gridExtra)
+library(scales)
+library(dplyr)
+library(tidyr)
 
 ################################################################################
 ## NOVELTY Test
@@ -30,12 +33,13 @@ library(gridExtra)
 # - end.date: the end date for the test
 # - select.sources: a chararacter vector of the sources on the dataset you want
 #                   to be a part of the test, or NULL for all of them
-tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NULL) {
+tiq.test.noveltyTest <- function(group, start.date, end.date, split.tii=TRUE,
+                                 select.sources=NULL, .progress=TRUE) {
   # Parameter checking
   test_that("tiq.test.noveltyTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
-    expect_match(start.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
-    expect_match(end.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(start.date, "^[[:digit:]]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(end.date, "^[[:digit:]]{8}$", info="must be a date (YYYYMMDD)")
   })
 
   # Calculating the date range for the test form start and end dates
@@ -46,13 +50,22 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
   ti.added.ratio = list()
   ti.churn.ratio = list()
 
+  if (.progress) pb = txtProgressBar(min = 1, max = length(date.range), style = 3)
+  if (.progress) pb_inc = 0
   ## For each date, get the respective RAW TI feed and calculate the counts
   ## per source that is a part of the group
   for (str.date in date.range) {
+    if (.progress) pb_inc = pb_inc + 1
+    if (.progress) setTxtProgressBar(pb = pb, value = pb_inc)
     ## Loading the RAW TI from the respective date and separating by source
     ti.dt = tiq.data.loadTI("raw", group, date=str.date)
     if (!is.null(ti.dt)) {
-      split.ti = split(ti.dt, ti.dt$source)
+      if (split.tii) {
+        split.ti = split(ti.dt, ti.dt$source)
+      } else {
+        split.ti = list(ti.dt)
+        names(split.ti) <- group
+      }
 
       ## Performing the novelty test only on the sources we select
       if (!is.null(select.sources)) {
@@ -68,9 +81,9 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
         ti.count[[name]][[str.date]] = nrow(split.ti[[name]])
         if (!is.null(prev.split.ti) && !is.null(prev.split.ti[[name]])) {
           ti.added.ratio[[name]][[str.date]] = tiq.helper.differenceCount(split.ti[[name]], prev.split.ti[[name]]) /
-                                               ti.count[[name]][[str.date]]
+            ti.count[[name]][[str.date]]
           ti.churn.ratio[[name]][[str.date]] = tiq.helper.differenceCount(prev.split.ti[[name]], split.ti[[name]]) /
-                                               ti.count[[name]][[str.date]]
+            ti.count[[name]][[str.date]]
 
           ## This adjustment is necessary to compensate for data collection issues
           ## we had on outbound feeds. You can't really change more then everything you got
@@ -83,6 +96,7 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
     }
     prev.split.ti = split.ti
   }
+  if (.progress) close(pb)
 
   return(list(ti.count=ti.count, ti.added.ratio=ti.added.ratio, ti.churn.ratio=ti.churn.ratio))
 }
@@ -92,44 +106,60 @@ tiq.test.noveltyTest <- function(group, start.date, end.date, select.sources=NUL
 # - novelty: the output of the 'tiq.test.noveltyTest' function
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
-tiq.test.plotNoveltyTest <- function(novelty, plot.sources=NULL) {
+tiq.test.plotNoveltyTest <- function(novelty, title="TIQ Novelty Test", plot.sources=NULL) {
 
-  test_that("tiq.test.plotNoveltyTest: parameters must have correct types", {
-    expect_that(class(novelty), equals("list"))
-    expect_that(class(novelty$ti.count), equals("list"))
-    expect_that(class(novelty$ti.added.ratio), equals("list"))
-    expect_that(class(novelty$ti.churn.ratio), equals("list"))
-  })
+	test_that("tiq.test.plotNoveltyTest: parameters must have correct types", {
+		expect_that(class(novelty), equals("list"))
+		expect_that(class(novelty$ti.count), equals("list"))
+		expect_that(class(novelty$ti.added.ratio), equals("list"))
+		expect_that(class(novelty$ti.churn.ratio), equals("list"))
+	})
 
-  ## Plotting the data (to be improved)
-  if (is.null(plot.sources)) {
-    plot.sources = names(novelty$ti.added.ratio)
-  }
+	if (is.null(plot.sources)) {
+		plot.sources = names(novelty$ti.added.ratio)
+	}
 
-  # Calculating the plots
-  plots = list()
-  for (name in plot.sources) {
-    added.ratio = novelty$ti.added.ratio[[name]]
-    churn.ratio = novelty$ti.churn.ratio[[name]]
-    df.ratio = rbind(data.frame(group="Added", date=names(added.ratio), ratio=added.ratio),
-                     data.frame(group="Churn", date=names(churn.ratio), ratio=-churn.ratio))
+	tmp <- as.data.frame(fixup(novelty$ti.added.ratio))
+	tmp$date <- rownames(tmp)
+	rownames(tmp) <- NULL
+	added_ratio <- gather(tmp, source, added_ratio, -date)
 
-    plots[[name]] = ggplot(df.ratio, aes(x=date, y=ratio, fill=group)) +
-                      geom_bar(stat="identity", position="identity") +
-                      theme(axis.text.x = element_text(angle = 90, hjust = 1, size=7)) +
-                      theme(axis.text.y = element_text(hjust = 1, size=12)) +
-                      scale_fill_discrete(name="Variation") +
-                      ylab("Change Ratio per Day") +
-                      xlab("Date") +
-                      ggtitle(paste0("Source Name: ", name, "\nAvg. Size: ",
-                                     floor(mean(novelty$ti.count[[name]]))))
-  }
+	tmp <- as.data.frame(fixup(novelty$ti.churn.ratio))
+	tmp$date <- rownames(tmp)
+	rownames(tmp) <- NULL
+	churn_ratio <- gather(tmp, source, churn_ratio, -date)
 
-  ## Let's try to organize them in a square-ish format
-  rows = ceiling(sqrt(length(plots)))
-  plots = c(plots, list(nrow=rows))
+	tmp <- as.data.frame(fixup(novelty$ti.count))
+	tmp$date <- rownames(tmp)
+	rownames(tmp) <- NULL
+	ti_count <- gather(tmp, source, ti_count, -date)
 
-  do.call(grid.arrange, plots)
+	tmp <- merge(merge(added_ratio, churn_ratio), ti_count)
+
+	tmp$churn_ratio <- -tmp$churn_ratio
+	tmp$churn_color <- "#35978f"
+	tmp$added_color <- "#bf812d"
+
+	tmp %>%
+		filter(source %in% plot.sources) %>%
+		group_by(source) %>%
+		mutate(avg_size=floor(mean(ti_count, na.rm=T)),
+					 label=sprintf("Source Name: %s\nAvg. Size: %s",
+					 							source, comma(avg_size))) -> tmp
+
+	gg <- ggplot(tmp, aes(x=date))
+	gg <- gg + geom_bar(stat="identity", aes(y=added_ratio, fill=added_color), colour="grey")
+	gg <- gg + geom_bar(stat="identity", aes(y=churn_ratio, fill=churn_color), colour="grey")
+	gg <- gg + geom_hline(yintercept=0, color="black", size=0.5)
+	gg <- gg + scale_y_continuous(labels=comma)
+	gg <- gg + scale_fill_identity(name="Variation", labels=c("Added", "Churn"), guide="legend")
+	gg <- gg + facet_wrap(~label, ncol=2, scales="free_y")
+	gg <- gg + labs(y="Change Ratio per Day", x=NULL, title=title)
+	gg <- gg + theme_bw()
+	gg <- gg + theme(axis.text.x=element_text(angle=90, hjust=1, size=7))
+	gg <- gg + theme(strip.background=element_blank())
+
+	gg
 }
 
 ################################################################################
@@ -147,7 +177,7 @@ tiq.test.plotNoveltyTest <- function(novelty, plot.sources=NULL) {
 #          the enriched entities ("enriched")
 # - select.sources: a chararacter vector of the sources on the dataset you want
 #                   to be a part of the test, or NULL for all of them
-tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
+tiq.test.overlapTest <- function(group, date, type="raw", split.tii=TRUE, select.sources=NULL) {
 
   test_that("tiq.test.overlapTest: parameters must have correct types", {
     expect_that(class(group), equals("character"))
@@ -156,8 +186,30 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
   })
 
   # Loading the data from the specific date
-  ti.dt = tiq.data.loadTI(type, group, date=date)
-  split.ti = split(ti.dt, ti.dt$source)
+  ti.data = lapply(group, tiq.data.loadTI, category=type, date=date)
+  names(ti.data) <- group
+
+  # Some bad code for making sure the length of split.tii matches ti.data
+  split.tii <- rep(split.tii, length(ti.data))
+  split.tii <- split.tii[1:length(ti.data)]
+
+  ti.data.list = mapply(function(ti.dt, doSplit) {
+  	if (doSplit) {
+  		if (!is.null(ti.dt)) split(ti.dt, ti.dt$source)
+  		else ti.dt
+  	} else {
+  		list(ti.dt)
+  	}
+  }, ti.data, split.tii, SIMPLIFY=F)
+  ti.data = unlist(ti.data.list, recursive=F)
+
+  group_names = names(ti.data)
+  split.ti = mapply(function(dt, group) {
+                    dt[, source := group]
+                  }, ti.data, group_names, SIMPLIFY=F, USE.NAMES=F)
+  names(split.ti) <- group_names
+
+  ti.dt = rbindlist(split.ti)
 
   ## Performing the overlap test only on the sources we select
   if (is.null(select.sources)) {
@@ -194,6 +246,7 @@ tiq.test.overlapTest <- function(group, date, type="raw", select.sources=NULL) {
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
 tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.sources=NULL) {
+
   if (!is.matrix(overlap) || (dim(overlap)[1] != dim(overlap)[2])) {
     msg = sprintf("tiq.test.plotOverlapTest: 'overlap' parameter mush be a square matrix")
     flog.error(msg)
@@ -201,15 +254,24 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
   }
 
   plot.data = as.data.table(melt(overlap))
+
   if (!is.null(plot.sources)) {
     plot.data = plot.data[as.character(Var1) %chin% plot.sources]
     plot.data = plot.data[as.character(Var2) %chin% plot.sources]
   }
 
-  q = qplot(x=Var1, y=Var2, data=plot.data, fill=value, geom="tile",
-            xlab="Source (is contained)", ylab="Source (contains)", main=title)
-  return(q + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=12))
-         + theme(axis.text.y = element_text(hjust = 1, size=12)))
+  gg <- ggplot(plot.data, aes(x=Var1, y=Var2))
+  gg <- gg + geom_tile(aes(fill=value), color="#e3e3e3", size=0.5)
+  gg <- gg + coord_equal()
+  gg <- gg + scale_fill_distiller(palette="YlOrBr", name="%\nOverlap", labels=percent)
+  gg <- gg + labs(x="Source (is contained)", y="Source (contains)", title=title)
+  gg <- gg + theme_bw()
+  gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=12))
+  gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=12))
+  gg <- gg + theme(panel.grid=element_blank())
+  gg <- gg + theme(panel.border=element_blank())
+
+  return(gg)
 }
 
 ################################################################################
@@ -290,51 +352,57 @@ tiq.test.extractPopulationFromTI <- function(group, pop.id, date, split.ti = TRU
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
 tiq.test.plotPopulationBars <- function(pop.data, pop.id, table.size=10,
-                                        title="", plot.sources=NULL) {
-  # Parameter checking
-  test_that("tiq.test.plotPopulationBars: parameters must have correct types", {
-    expect_that(class(pop.data), equals("list"))
-    expect_that(class(pop.id), equals("character"))
-    expect_that(class(table.size), equals("numeric"))
-    expect_that(class(title), equals("character"))
-  })
+															 title="", plot.sources=NULL) {
+	# Parameter checking
+	test_that("tiq.test.plotPopulationBars: parameters must have correct types", {
+		expect_that(class(pop.data), equals("list"))
+		expect_that(class(pop.id), equals("character"))
+		expect_that(class(table.size), equals("numeric"))
+		expect_that(class(title), equals("character"))
+	})
 
-  ## Plotting the data (to be improved)
-  if (is.null(plot.sources)) {
-    plot.sources = names(pop.data)
-  }
+	## Plotting the data (to be improved)
+	if (is.null(plot.sources)) {
+		plot.sources = names(pop.data)
+	}
 
-  # Preparing the data and calculating the max proportion we have
-  max.pop = 0.0
-  for (name in plot.sources) {
-    pop = pop.data[[name]]
-    pop[, totalIPs := totalIPs / sum(pop$totalIPs)]
-    if (max(pop$totalIPs) > max.pop) max.pop = max(pop$totalIPs)
-  }
+	# Preparing the data and calculating the max proportion we have
+	max.pop = 0.0
+	for (name in plot.sources) {
+		pop = pop.data[[name]]
+		pop[, totalIPs := totalIPs / sum(pop$totalIPs)]
+		if (max(pop$totalIPs) > max.pop) max.pop = max(pop$totalIPs)
+	}
 
-  # Creating the Plots
-  plots = list()
-  for (name in plot.sources) {
-    pop = copy(pop.data[[name]])
-    pop = pop[order(totalIPs, decreasing=TRUE)]
-    if (table.size > 0) pop = pop[1:table.size]
-    pop = pop[order(totalIPs, decreasing=FALSE)]
-    setnames(pop, pop.id, "pop.id")
+	# Creating the Plots
+	plots = list()
+	for (name in plot.sources) {
 
-    plots[[name]] = ggplot(pop, aes(x=reorder(pop.id,totalIPs), y=totalIPs)) +
-                      geom_bar(stat="identity", fill="red", colour="black", width=0.65) +
-                      ylim(0.0, max.pop) +
-                      coord_flip() +
-                      theme(axis.text.x = element_text(size=12, colour="black")) +
-                      theme(axis.text.y = element_text(size=12, colour="black")) +
-                      ylab(paste0("IP Ratio")) +
-                      scale_x_discrete(name="", labels=sprintf("%s (%.2f)",pop$pop.id, pop$totalIPs)) +
-                      ggtitle(paste0("Population Summary by ", pop.id, " (",name,")"))
-  }
+		pop = copy(pop.data[[name]])
+		pop = pop[order(totalIPs, decreasing=TRUE)]
 
-  ## Let's try to organize them in on top of each other
-  plots = c(plots, list(ncol=1))
-  do.call(grid.arrange, plots)
+		if (table.size > 0) pop = pop[1:table.size]
+
+		pop = pop[order(totalIPs, decreasing=FALSE)]
+
+		setnames(pop, pop.id, "pop.id")
+
+		gg <- ggplot(pop, aes(x=reorder(pop.id,totalIPs), y=totalIPs))
+		gg <- gg + geom_bar(stat="identity", fill="#543005", width=0.65)
+		gg <- gg + scale_x_discrete(expand=c(0,0), name="", labels=sprintf("%s (%.2f)", pop$pop.id, pop$totalIPs))
+		gg <- gg + scale_y_continuous(expand=c(0,0), limits=c(0.0, max.pop))
+		gg <- gg + labs(y="IP Ratio", title=paste0("Population Summary by ", pop.id, " (",name,")"))
+		gg <- gg + coord_flip()
+		gg <- gg + theme_bw()
+		gg <- gg + theme(axis.text = element_text(size=12, colour="black"))
+		gg <- gg + theme(axis.ticks.y = element_blank())
+
+		plots[[name]] = gg
+	}
+
+	## Let's try to organize them in on top of each other
+	plots = c(plots, list(ncol=1))
+	do.call(grid.arrange, plots)
 }
 
 # tiq.test.populationInference - returns a data.table
@@ -506,42 +574,150 @@ tiq.test.agingTest <- function(group, start.date, end.date, type = "raw",
 # - title: a title for your plot. NULL leaves it blank
 # - plot.sources: a chararacter vector of the sources on the novelty test you want
 #                 to be a part of the plot, or NULL for all of them
-tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL) {
-  # Parameter checking
-  test_that("tiq.test.plotAgingTest: parameters must have correct types", {
-    expect_is(aging.data, "tiqtest.agingtest")
-  })
+tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL,
+																	 density.limit=NULL) {
+	# Parameter checking
+	test_that("plotAgingTest: parameters must have correct types", {
+		expect_is(aging.data, "tiqtest.agingtest")
+	})
 
-  # Important for graph alignment
-  total.days = aging.data[["_agingtest.days"]]
-  aging.data[["_agingtest.days"]] = NULL
+	# Important for graph alignment
+	total.days = aging.data[["_agingtest.days"]]
+	aging.data[["_agingtest.days"]] = NULL
 
-  # Selecting the sources to plot
-  if (is.null(plot.sources)) {
-    plot.sources = names(aging.data)
-  }
+	# Selecting the sources to plot
+	if (is.null(plot.sources)) {
+		plot.sources = names(aging.data)
+	}
 
-  # Creating the Plots
-  plots = list()
-  for (name in plot.sources) {
-    dt_aging = data.table(age=aging.data[[name]])
+	tmp <- names(aging.data)
+	source_dat <- rbindlist(lapply(tmp, function(x) {
+		data.frame(source=sprintf("Source: '%s'", x), value=aging.data[[x]])
+	}))
 
-    plots[[name]] =
-      ggplot(dt_aging, aes(x=age)) +
-      geom_histogram(aes(y=..density..),  # Histogram with density instead of count on y-axis
-                     binwidth=1,
-                     colour="black", fill="white") +
-      geom_density(alpha=.2, fill="#FF6666") +
-      xlim(0, total.days + 1) +
-      theme(axis.text.x = element_text(size=12, colour="black")) +
-      theme(axis.text.y = element_text(size=12, colour="black")) +
-      ylab("Density") +
-      xlab("Indicator Age") +
-      ggtitle(paste0("Source: '", name, "'\nSampled Time: ", total.days, " days"))
-  }
+	gg <- ggplot(source_dat, aes(x=value))
+	gg <- gg + geom_histogram(aes(y=..density..),  # Histogram with density instead of count on y-axis
+														binwidth=1, colour="black", fill="#f5f5f5")
+	gg <- gg + geom_density(alpha=.2, fill="#01665e")
+	gg <- gg + xlim(0, total.days + 1)
+	gg <- gg + facet_wrap(~source, scales="free_y")
+	gg <- gg + labs(x="Indicator Age", y="Density",
+									title=paste0(title, sprintf(" - Sampled Time: %s days", total.days)))
+	gg <- gg + theme_bw()
+	gg <- gg + theme(axis.text=element_text(size=12, colour="black"))
+	gg <- gg + theme(strip.background=element_blank())
+	if (!is.null(density.limit)) {
+		gg <- gg + coord_cartesian(ylim=c(0, density.limit))
+	}
+	gg
+}
 
-  ## Let's try to organize them in a square-ish format
-  rows = ceiling(sqrt(length(plots)))
-  plots = c(plots, list(ncol=rows, main=title))
-  do.call(grid.arrange, plots)
+################################################################################
+## UNIQUENESS Tests
+################################################################################
+# tiq.test.uniquenessTest - returns a "data.table" object (that can be merged
+# with other outputs form similar runs)
+# Calculates percentage breakdown of in how many feeds indicators appear
+# the days from 'start.date' to 'end.date' Use 'group' and 'type' to select the
+# dataset. 'split.tii' and 'select.sources' control the output
+# - group: the name of the dataset group. Must exist on the 'type' category. Can
+#          be vectorized
+# - start.date: the beginning date for the test
+# - end.date: the end date for the test
+# - type: The test can take into consideration the FQDN sources as
+#          the original entities ("raw"), or as the extracted IPv4 fields from
+#          the enriched entities ("enriched")
+# - split.tii: if TRUE, creates a popoulation for each source and returns a list
+#             with the sources as IDs. Otherwise, returns a list with a single
+#             element with the group as the ID. Can be vectorized along with
+#             'group'
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them. Only
+#                   applicable if split.ti = TRUE.
+tiq.test.uniquenessTest <- function(group, start.date, end.date = start.date,
+																		type="raw", split.tii=TRUE, select.sources=NULL) {
+
+	test_that("tiq.test.uniquenessTest: parameters must have correct types", {
+		expect_that(class(group), equals("character"))
+		expect_match(start.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+		expect_match(end.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+		expect_that(class(type), equals("character"))
+	})
+
+	# Calculating the date range for the test form start and end dates
+	date.range = .tiq.data.getDateSequence(start.date, end.date)
+
+	# Loading the data from the specific date
+	loadDate <- function(date) {
+		ti.data = lapply(group, tiq.data.loadTI, category=type, date=date)
+		names(ti.data) <- group
+
+		# Some bad code for making sure the length of split.tii matches ti.data
+		split.tii <- rep(split.tii, length(ti.data))
+		split.tii <- split.tii[1:length(ti.data)]
+
+		ti.data.list = mapply(function(ti.dt, doSplit) {
+			if (doSplit) {
+				if (!is.null(ti.dt)) split(ti.dt, ti.dt$source)
+				else ti.dt
+			} else {
+				list(ti.dt)
+			}
+		}, ti.data, split.tii, SIMPLIFY=F)
+		ti.data = unlist(ti.data.list, recursive=F)
+
+		group_names = names(ti.data)
+		split.ti = mapply(function(dt, group) {
+			if (!is.null(dt)) dt[, source := group]
+			else dt
+		}, ti.data, group_names, SIMPLIFY=F, USE.NAMES=F)
+		names(split.ti) <- group_names
+
+		ti.dt = rbindlist(split.ti)
+		return(ti.dt)
+	}
+
+	# Applying over multiple dates and removing duplicates across dates so they
+	# don't get double-counted
+	ti.dt.list <- lapply(date.range, loadDate)
+	ti.dt <- rbindlist(ti.dt.list)
+	ti.dt <- unique(ti.dt, by=c("entity", "type", "direction", "source"))
+
+	## Performing the uniqueness test only on the sources we select
+	if (is.null(select.sources)) {
+		select.sources = unique(ti.dt$source)
+	}
+
+	if (length(select.sources) > 1) {
+		uniqueness.dt <- ti.dt[, list(count = .N), by=c("entity", "type", "direction")]
+		uniqueness.stats <- uniqueness.dt[, list(ratio = .N/nrow(uniqueness.dt)), by="count"]
+		uniqueness.stats[, days := length(date.range)]
+		setkey(uniqueness.stats, count)
+	} else {
+		uniqueness.stats <- NULL
+	}
+
+	return(uniqueness.stats)
+}
+
+# tiq.test.plotUniquenessTest
+# Plots an Uniqueness Test bar plot
+# - uniqueness.data: the aging data object to be plotted. More specifically the
+#								output of tiq.test.uniquenessTest(). Note that different outputs
+#								of the function can be rbind()'ed together for parallel bar charts
+# - title: a title for your plot. NULL leaves it blank
+tiq.test.plotUniquenessTest <- function(uniqueness.data, title="Uniqueness Test") {
+	# Parameter checking
+	test_that("plotUniquenessTest: parameters must have correct types", {
+		expect_is(uniqueness.data, "data.table")
+	})
+
+	gg <- ggplot(data=uniqueness.data, aes(x=as.factor(count), y=ratio, fill=as.factor(days)))
+	gg <- gg + geom_bar(stat="identity", position=position_dodge(), colour="black")
+	gg <- gg + scale_fill_brewer(palette="Oranges", name="Combined\nDays")
+	gg <- gg + labs(x="Number TI Feeds", y="Ratio of Indicators", title=title)
+	gg <- gg + theme_bw()
+	gg <- gg + theme(axis.text.x = element_text(hjust = 1, size=12))
+	gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=12))
+	gg
 }

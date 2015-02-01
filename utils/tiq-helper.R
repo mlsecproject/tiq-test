@@ -38,3 +38,29 @@ tiq.helper.overlapCount <- function(test, reference) {
 
   return(length(intersect(test$entity, reference$entity)))
 }
+
+# used to insert missing days into test values
+fixup <- function(l) {
+	# GET ALL THE DAYS!
+	all_days <- sort(unique(unlist(lapply(names(l), function(x) {
+		names(l[[x]])
+	}))))
+
+	# basic idea is to merge all the days with the ti feed days
+	# this will automagically give us NAs for the missing days
+	# and return everything in the original list format)
+	fixed <- lapply(names(l), function(x) {
+		df <- data.frame(date=names(l[[x]]),
+										 values=l[[x]], stringsAsFactors=FALSE)
+		df <- merge(df,
+								data.frame(date=all_days, stringsAsFactors=FALSE),
+								all.y=TRUE) %>%
+			dplyr::arrange(date) %>% data.frame
+		vals <- df[,"values"]
+		names(vals) <- df[,"date"]
+		vals
+	})
+
+	names(fixed) <- names(l)
+	fixed
+}
