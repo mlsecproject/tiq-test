@@ -2,15 +2,25 @@ tiq-test - Threat Intelligence Quotient Test
 ============================================
 Dataviz and Statistical Analysis of Threat Intelligence Indicator feeds
 
-As seen on:
+# First batch of presentations
+
+These presentations introduced `combine` and `tiq-test` with the 3 initial tests:
 * BSides LV 2014 - "Measuring the IQ of your threat intelligence feeds"
 * DEF CON 22 - "Measuring the IQ of your threat intelligence feeds"
 * OpenDNS S4 IRespond - "Measuring the IQ of your threat intelligence feeds"
 * HushCon 2014 - "Measuring the IQ of your threat intelligence feeds"
 
 The data repository and R Markdown source for these talks can be found at https://github.com/mlsecproject/tiq-test-Summer2014
+Follow the RPubs file at http://bit.ly/tiqtest-rpubs
 
-Follow the RPubs file [here](http://bit.ly/tiqtest-rpubs)
+# Second batch of presentations
+
+These presentations introduced the Aging and Uniqueness tests:
+* nbtcon 2014: "From Threat Intelligence to Defense Cleverness: A Data Science Approach"
+* SANS CTI Summit 2015: "From Threat Intelligence to Defense Cleverness: A Data Science Approach"
+
+The data repository and R Markdown source for these talks can be found at https://github.com/mlsecproject/tiq-test-Winter2015
+Follow the RPubs file at http://rpubs.com/alexcpsec/tiq-test-Winter2015
 
 Copyright Info
 --------------
@@ -44,11 +54,15 @@ have some packages installed. The required packages are:
 * `reshape2`
 * `ggplot2`
 * `gridExtra`
+* `scales`
+* `dplyr`
+* `tidyr`
 
-Running this on your R console should take care of that:
+Running this on your R console should take care of that of you:
 ```
 install.packages(c("futile.logger", "data.table", "testthat", 
-                   "reshape2", "ggplot2", "gridExtra"),
+                   "reshape2", "ggplot2", "gridExtra", "scales",
+                   "dplyr", "tidyr"),
                  repos="http://cran.us.r-project.org")
 ```
 
@@ -73,4 +87,6 @@ know where to look.
 .tiq.data.setRootPath(file.path(current.dir, "data"))
 ```
 
-Check out usage examples for the tests here http://rpubs.com/alexcpsec/tiq-test-Summer2014-2
+Check out usage examples for the tests on the presentation RPubs files:
+* http://rpubs.com/alexcpsec/tiq-test-Summer2014-2
+* http://rpubs.com/alexcpsec/tiq-test-Winter2015

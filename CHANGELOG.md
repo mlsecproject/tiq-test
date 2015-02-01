@@ -1,8 +1,10 @@
 CHANGE LOG
 ==========
 
-#### Unreleased Version
+#### 0.2.0 Badger
 * Implementation of Aging Test ([issue 12](https://github.com/mlsecproject/tiq-test/issues/12))
+* Implementation of Uniqueness Test ([issue 19](https://github.com/mlsecproject/tiq-test/issues/19))
+* Revision and improvements on chart output quality (thanks to @hrbrmstr!)
 
 #### 0.1.3 Charming Armadillo
 * Replacing the existing graphs with pretty ggplot2 versions ([issue 7](https://github.com/mlsecproject/tiq-test/issues/7))
