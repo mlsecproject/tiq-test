@@ -612,7 +612,28 @@ tiq.test.plotAgingTest <- function(aging.data, title=NULL, plot.sources=NULL,
 	gg
 }
 
-# Uniqueness
+################################################################################
+## UNIQUENESS Tests
+################################################################################
+# tiq.test.uniquenessTest - returns a "data.table" object (that can be merged
+# with other outputs form similar runs)
+# Calculates percentage breakdown of in how many feeds indicators appear
+# the days from 'start.date' to 'end.date' Use 'group' and 'type' to select the
+# dataset. 'split.tii' and 'select.sources' control the output
+# - group: the name of the dataset group. Must exist on the 'type' category. Can
+#          be vectorized
+# - start.date: the beginning date for the test
+# - end.date: the end date for the test
+# - type: The test can take into consideration the FQDN sources as
+#          the original entities ("raw"), or as the extracted IPv4 fields from
+#          the enriched entities ("enriched")
+# - split.tii: if TRUE, creates a popoulation for each source and returns a list
+#             with the sources as IDs. Otherwise, returns a list with a single
+#             element with the group as the ID. Can be vectorized along with
+#             'group'
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them. Only
+#                   applicable if split.ti = TRUE.
 tiq.test.uniquenessTest <- function(group, start.date, end.date = start.date,
 																		type="raw", split.tii=TRUE, select.sources=NULL) {
 
@@ -679,6 +700,12 @@ tiq.test.uniquenessTest <- function(group, start.date, end.date = start.date,
 	return(uniqueness.stats)
 }
 
+# tiq.test.plotUniquenessTest
+# Plots an Uniqueness Test bar plot
+# - uniqueness.data: the aging data object to be plotted. More specifically the
+#								output of tiq.test.uniquenessTest(). Note that different outputs
+#								of the function can be rbind()'ed together for parallel bar charts
+# - title: a title for your plot. NULL leaves it blank
 tiq.test.plotUniquenessTest <- function(uniqueness.data, title="Uniqueness Test") {
 	# Parameter checking
 	test_that("plotUniquenessTest: parameters must have correct types", {
