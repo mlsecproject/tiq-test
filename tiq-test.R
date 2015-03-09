@@ -715,7 +715,7 @@ tiq.test.plotUniquenessTest <- function(uniqueness.data, title="Uniqueness Test"
 	gg <- ggplot(data=uniqueness.data, aes(x=as.factor(count), y=ratio, fill=as.factor(days)))
 	gg <- gg + geom_bar(stat="identity", position=position_dodge(), colour="black")
 	gg <- gg + scale_fill_brewer(palette="Oranges", name="Combined\nDays")
-	gg <- gg + labs(x="Number TI Feeds", y="Ratio of Indicators", title=title)
+	gg <- gg + labs(x="Number of TI Feeds Containing Indicators", y="Ratio of Indicators", title=title)
 	gg <- gg + theme_bw()
 	gg <- gg + theme(axis.text.x = element_text(hjust = 1, size=12))
 	gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=12))
