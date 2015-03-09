@@ -239,6 +239,96 @@ tiq.test.overlapTest <- function(group, date, type="raw", split.tii=TRUE, select
   return(overlap.matrix)
 }
 
+# tiq.test.overlapTest - returns a numeric matrix with the overlap ratios
+# - group: the name of the dataset group. Must exist on the selected 'type'
+# - date: the date you want the test to run in
+# - type: The overlap test can take into consideration the FQDN sources as
+#          the original entities ("raw"), or as the extracted IPv4 fields from
+#          the enriched entities ("enriched")
+# - select.sources: a chararacter vector of the sources on the dataset you want
+#                   to be a part of the test, or NULL for all of them
+tiq.test.overlapTestDates <- function(group, start.date, end.date, type="raw",
+                                 split.tii=TRUE, select.sources=NULL) {
+
+  test_that("tiq.test.overlapTest: parameters must have correct types", {
+    expect_that(class(group), equals("character"))
+    expect_match(start.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_match(end.date, "^[0123456789]{8}$", info="must be a date (YYYYMMDD)")
+    expect_that(class(type), equals("character"))
+  })
+
+  # Calculating the date range for the test form start and end dates
+  date.range = .tiq.data.getDateSequence(start.date, end.date)
+
+  # Loading the data from the specific date
+  loadDate <- function(date) {
+    ti.data = lapply(group, tiq.data.loadTI, category=type, date=date)
+    names(ti.data) <- group
+
+    # Some bad code for making sure the length of split.tii matches ti.data
+    split.tii <- rep(split.tii, length(ti.data))
+    split.tii <- split.tii[1:length(ti.data)]
+
+    ti.data.list = mapply(function(ti.dt, doSplit) {
+      if (doSplit) {
+        if (!is.null(ti.dt)) split(ti.dt, ti.dt$source)
+        else ti.dt
+      } else {
+        list(ti.dt)
+      }
+    }, ti.data, split.tii, SIMPLIFY=F)
+    ti.data = unlist(ti.data.list, recursive=F)
+
+    group_names = names(ti.data)
+    split.ti = mapply(function(dt, group) {
+      if (!is.null(dt)) dt[, source := group]
+      else dt
+    }, ti.data, group_names, SIMPLIFY=F, USE.NAMES=F)
+    names(split.ti) <- group_names
+
+    ti.dt = rbindlist(split.ti)
+    return(ti.dt)
+  }
+
+  # Applying over multiple dates and removing duplicates across dates so they
+  # don't get double-counted
+  ti.dt.list <- lapply(date.range, loadDate)
+  ti.dt <- rbindlist(ti.dt.list)
+  ti.dt <- unique(ti.dt, by=c("entity", "type", "direction", "source"))
+
+  ## Fixing botscout for earlier days
+  ti.dt[source == "public_outbound.botscout", source := "public_inbound.botscout"]
+
+  ## Performing the overlap test only on the sources we select
+  if (is.null(select.sources)) {
+    select.sources = unique(ti.dt$source)
+  }
+  select.sources <- select.sources[order(select.sources)]
+  split.ti <- split(ti.dt, as.factor(ti.dt$source))
+
+  overlap.matrix = matrix(nrow=length(select.sources), ncol=length(select.sources),
+                          dimnames=list(select.sources, select.sources))
+
+  # Removing duplicated entries from each source
+  for (ti in 1:length(select.sources)) {
+    setkey(split.ti[[select.sources[ti]]], entity)
+    split.ti[[select.sources[ti]]] = unique(split.ti[[select.sources[ti]]])
+  }
+
+  # Calculating the overlap for each pairing
+  for (ti in 1:length(select.sources)) {
+    for (overlap in 1:length(select.sources)) {
+      # For each pairing
+      overlap.count = tiq.helper.overlapCount(split.ti[[select.sources[ti]]],
+                                              split.ti[[select.sources[overlap]]])
+      overlap.matrix[ti,overlap] = overlap.count /
+        length(unique(split.ti[[select.sources[ti]]]$entity))
+    }
+  }
+
+  return(overlap.matrix)
+}
+
 # tiq.test.plotOverlapTest - returns a ggplot2 object (plots when printed)
 # Plots the results of the overlap test in a (mostly) clear heatmap for comparisons
 # - overlap: the output of the 'tiq.test.OverlapTest' function
@@ -266,8 +356,8 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
   gg <- gg + scale_fill_distiller(palette="YlOrBr", name="%\nOverlap", labels=percent)
   gg <- gg + labs(x="Source (is contained)", y="Source (contains)", title=title)
   gg <- gg + theme_bw()
-  gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=12))
-  gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=12))
+  gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=10))
+  gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=10))
   gg <- gg + theme(panel.grid=element_blank())
   gg <- gg + theme(panel.border=element_blank())
 
