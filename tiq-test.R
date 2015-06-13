@@ -356,8 +356,8 @@ tiq.test.plotOverlapTest <- function(overlap, title="Overlap Test Plot", plot.so
   gg <- gg + scale_fill_distiller(palette="YlOrBr", name="%\nOverlap", labels=percent)
   gg <- gg + labs(x="Source (is contained)", y="Source (contains)", title=title)
   gg <- gg + theme_bw()
-  gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=10))
-  gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=10))
+  gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1, size=9))
+  gg <- gg + theme(axis.text.y = element_text(hjust = 1, size=9))
   gg <- gg + theme(panel.grid=element_blank())
   gg <- gg + theme(panel.border=element_blank())
 
