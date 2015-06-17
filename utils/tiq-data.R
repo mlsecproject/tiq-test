@@ -120,7 +120,8 @@ tiq.data.loadPopulation <- function(pop.group, pop.id, date = NULL) {
 #          date the 'database' has available
 #  - valid.fields: the fields we should look for in the dataset to validate that
 #                  i  t is of the correct type
-.tiq.data.loadData <- function(category, group, date=NULL, valid.fields=character(0)) {
+.tiq.data.loadData <- function(category, group, date=NULL,
+															 valid.fields=character(0), show_warnings = FALSE) {
 
   test_that("tiq.data.loadData: unable to open data - 'category' or 'group' are invalid", {
     expect_that(class(category), equals("character"))
@@ -138,8 +139,10 @@ tiq.data.loadPopulation <- function(pop.group, pop.id, date = NULL) {
   ti.file = file.path(ti.path, paste0(date, ".csv.gz"))
 
   if (!file.exists(ti.file)) {
-    flog.warn("tiq.data.loadTI: path '%s' is invalid. No data available on date '%s'.",
-              ti.file, date)
+    if (show_warnings) {
+    	flog.warn("tiq.data.loadTI: path '%s' is invalid. No data available on date '%s'.",
+                ti.file, date)
+    }
     return(NULL)
   }
 
@@ -150,8 +153,10 @@ tiq.data.loadPopulation <- function(pop.group, pop.id, date = NULL) {
   # Some sanity checking - is this a data.table and does it have all the fields
   # we recognize?
   if (!is.data.table(ti.dt) || !all(valid.fields %chin% names(ti.dt))) {
-    flog.warn("tiq.data.loadData: Data loaded from path '%s' is invalid.",
-              ti.file)
+  	if (show_warnings) {
+	    flog.warn("tiq.data.loadData: Data loaded from path '%s' is invalid.",
+	              ti.file)
+  	}
     return(NULL)
   }
 
