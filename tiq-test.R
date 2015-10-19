@@ -137,8 +137,8 @@ tiq.test.plotNoveltyTest <- function(novelty, title="TIQ Novelty Test", plot.sou
 	tmp <- merge(merge(added_ratio, churn_ratio), ti_count)
 
 	tmp$churn_ratio <- -tmp$churn_ratio
-	tmp$churn_color <- "#35978f"
-	tmp$added_color <- "#bf812d"
+	tmp$churn_color <- "#bf812d"
+	tmp$added_color <- "#35978f"
 
 	tmp %>%
 		filter(source %in% plot.sources) %>%
